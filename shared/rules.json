@@ -1,0 +1,168 @@
+{
+  "formatVersion": 1,
+  "_comment": [
+    "Order & Conquest — all tunable numbers live here as DATA, not in code.",
+    "OrderAndConquest.Engine loads this once at startup and binds it to RulesConfig.",
+    "Values marked SOURCED are supported by docs/12-references.md.",
+    "Values marked ASSUMPTION are design decisions recorded in docs/00-decisions-and-assumptions.md.",
+    "Changing a value here must never require an engine rebuild."
+  ],
+
+  "setup": {
+    "minSeats": 2,
+    "maxSeats": 6,
+    "startingArmies": { "3": 35, "4": 30, "5": 25, "6": 20 },
+    "twoPlayerVariant": "neutral",
+    "territoryAllocation": "claim",
+    "_note": "startingArmies is SOURCED. 2-player uses a third Neutral seat, so the 3-player row (35) applies. territoryAllocation: 'claim' | 'random'."
+  },
+
+  "draft": {
+    "territoryDivisor": 3,
+    "minimumArmies": 3,
+    "continentBonusEnabled": true,
+    "_note": "SOURCED: armies = max(3, floor(territories / 3)) + continent bonuses + card trade value."
+  },
+
+  "combat": {
+    "attackerMaxDice": 3,
+    "defenderMaxDice": 2,
+    "minArmiesToAttack": 2,
+    "attackerNeedsOneMoreArmyThanDice": true,
+    "defenderWinsTies": true,
+    "occupyMinimumEqualsDiceRolled": true,
+    "mustLeaveBehind": 1,
+    "_note": "SOURCED. defenderWinsTies is the single highest-risk flag in this file; TC-CMB-06 asserts the exact odds fractions against it."
+  },
+
+  "cards": {
+    "wildCount": 2,
+    "maxCardsBeforeForcedTrade": 5,
+    "maxCardsAfterElimination": 6,
+    "setSize": 3,
+    "awardPerTurn": 1,
+    "awardRequiresConquest": true,
+    "territoryBonusArmies": 2,
+    "territoryBonusMaxPerTurn": 2,
+    "tradeValues": [4, 6, 8, 10, 12, 15, 20, 25],
+    "tradeIncrementAfterTable": 5,
+    "symbols": ["Infantry", "Cavalry", "Artillery", "AirForce", "NavalForce", "Wild"],
+    "distinctSetRule": "any_distinct",
+    "wildSubstitution": "joker",
+    "_note": [
+      "tradeValues: 4, 6, 8, 20 and 25 are SOURCED; 10, 12, 15 are inferred and stay as data for exactly that reason.",
+      "setSize stays 3 (3-alike, 3-different, or 2 + Wild). Locked: five-card sets are NOT introduced.",
+      "symbols has 6 entries but the trade structure is unchanged from classic RISK.",
+      "distinctSetRule (D-27): 'any_distinct' = any three distinct non-Wild symbols. Alternative 'classic_triple' = specifically Infantry + Cavalry + Artillery. With five non-Wild symbols these differ; with classic RISK's three they do not.",
+      "wildSubstitution (D-28): 'joker' = a Wild stands for any symbol, so any two cards plus a Wild form a set (the official classic-RISK rule). Alternative 'pair_only' = a Wild only completes a pair, so {Infantry, Cavalry, Wild} and {X, Wild, Wild} are NOT sets.",
+      "D-27 and D-28 both need a reviewer's confirmation before Phase 4: they change how often a forced trade (FR-35) is satisfiable, and therefore every card-family test oracle. TC-CRD-06 asserts whichever branch is configured here."
+    ]
+  },
+
+  "capability": {
+    "rule": "CAP-1",
+    "_rule_text": "profile(t) = {Infantry} union ({NavalForce} if t.coastal) union {t.cardSymbol}",
+    "seatHoldsCapabilityFromTerritories": true,
+    "seatHoldsCapabilityFromCards": true,
+    "nonActionSymbols": ["Infantry", "Cavalry", "Artillery"],
+    "actionSymbols": ["AirForce", "NavalForce"],
+    "_note": "ASSUMPTION CAP-2: a seat holds capability X iff it owns >=1 territory whose profile contains X, or holds >=1 card whose profile contains X. Infantry/Cavalry/Artillery unlock nothing — they are card symbols only, exactly as in classic RISK."
+  },
+
+  "airForce": {
+    "enabled": true,
+    "maxRange": 5,
+    "rangeGraph": "land",
+    "minRange": 1,
+    "attacksPerTurn": 1,
+    "requiresCapability": true,
+    "usesStandardCombat": true,
+    "_note": [
+      "LOCKED: maxRange 5, measured by land adjacency only. Sea routes are excluded from range.",
+      "ASSUMPTION AIR-1: attacksPerTurn = 1 is the simplest limiter that stops Air Force strictly dominating normal attack. One integer, tunable.",
+      "On the classic board, range 5 reaches 77.2% of ordered territory pairs (graph diameter is 10) — measured, see docs/07-game-design.md 7.8."
+    ]
+  },
+
+  "navalForce": {
+    "enabled": true,
+    "requiresCapability": true,
+    "allowsAttack": true,
+    "allowsFortify": true,
+    "allowsOccupy": true,
+    "usesStandardCombat": true,
+    "unitsRequiredPerRoute": 0,
+    "_note": [
+      "LOCKED: operates over sea routes only; landlocked territories are never automatically naval.",
+      "ASSUMPTION NAV-1: unitsRequiredPerRoute = 0. A sea route behaves exactly like a land edge for a seat that holds Naval capability. This is the simplest consistent rule and adds no new unit type."
+    ]
+  },
+
+  "seaRoutes": {
+    "min": 2,
+    "max": 10,
+    "default": 4,
+    "endpointsMustBeCoastal": true,
+    "forbidExistingLandAdjacency": true,
+    "forbidDuplicate": true,
+    "preferDifferentContinents": true,
+    "maxGenerationAttempts": 500,
+    "_note": [
+      "LOCKED: the seat chooses the COUNT at match setup; the system chooses the endpoints; min/max are configurable; generated routes are frozen into matches.effective_map.",
+      "ASSUMPTION SEA-1: min 2 / max 10 / default 4. min >= 2 keeps Naval Force exercisable whenever it is enabled. Set navalForce.enabled = false to play classic-only."
+    ]
+  },
+
+  "fortify": {
+    "mode": "single_pair",
+    "mustLeaveBehind": 1,
+    "_note": "mode: 'single_pair' | 'one_step_all' | 'connected_path'. SOURCED that published rules disagree; single_pair is the default and the variant is data so a trained RL checkpoint can assert which one it learned."
+  },
+
+  "match": {
+    "roundCap": 100,
+    "capTiebreak": "territoryCount",
+    "turnTimerSeconds": 0,
+    "aiMinimumThinkTimeMs": 400,
+    "_note": "roundCap 100 is SOURCED (MARS). turnTimerSeconds 0 = unenforced; the field exists now so online play in Phase 6 changes configuration, not schema."
+  },
+
+  "ai": {
+    "mars": {
+      "C_sv": 70.0,
+      "C_fn": 1.2,
+      "C_en": -0.3,
+      "C_fnu": 0.05,
+      "C_enu": -0.03,
+      "C_cb": 0.5,
+      "C_oc": 20.0,
+      "C_eoc": 4.0,
+      "P_db": 3.5,
+      "P_ob": 170.0,
+      "W_p": 0.7375,
+      "W_p1": 0.25,
+      "G_l": 5
+    },
+    "difficulty": {
+      "Easy":   { "agent": "PassiveBot" },
+      "Normal": { "agent": "MarsBot", "W_p": 0.85, "G_l": 0, "temperature": 1.0 },
+      "Hard":   { "agent": "MarsBot", "W_p": 0.7375, "G_l": 5, "temperature": 0.5 },
+      "Brutal": { "agent": "OnnxPolicyAgent", "temperature": 0.0, "fallback": "MarsBot" }
+    },
+    "bots": {
+      "PassiveBot":    { "minWinChance": 0.80, "neverLeaveBelow": 3 },
+      "ChaoticBot":    { "minWinChance": 0.00 },
+      "AggressiveBot": { "minWinChance": 0.45 }
+    },
+    "_note": "MARS coefficients are SOURCED. W_p is the difficulty dial. The difficulty table is ASSUMPTION AI-1."
+  },
+
+  "rl": {
+    "gamma": 0.995,
+    "reward": { "win": 1.0, "loss": -1.0, "drawAtCap": 0.0, "perStep": -0.0005 },
+    "gnn": { "layers": 3, "hidden": 128 },
+    "opponentPool": { "current": 0.40, "frozenCheckpoints": 0.30, "mars": 0.20, "chaotic": 0.10 },
+    "shipGate": "must beat MarsBot head-to-head over >=1000 seeded matches",
+    "_note": "RL is OPTIONAL. The game is complete and shippable at Phase 7 (heuristic AI). Nothing in the engine, API, database or clients depends on rl.*."
+  }
+}

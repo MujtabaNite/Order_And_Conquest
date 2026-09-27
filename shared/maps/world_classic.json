@@ -1,0 +1,225 @@
+{
+  "key": "world_classic",
+  "name": "Classic World",
+  "formatVersion": 2,
+  "source": { "kind": "authored" },
+  "canvas": { "width": 1600, "height": 900 },
+
+  "_comment": [
+    "Order & Conquest — authored 42-territory board.",
+    "ASSERTED TOTALS: 42 territories, 6 continents, 83 land-adjacency edges.",
+    "Continent sizes NA 9 / SA 4 / EU 7 / AF 6 / AS 12 / AU 4.",
+    "Continent bonuses 5 / 2 / 5 / 3 / 7 / 2. Border counts 3 / 2 / 4 / 3 / 5 / 1.",
+    "",
+    "'neighbours' is the LAND ADJACENCY GRAPH. It is the graph used by normal attack,",
+    "by fortification, and by Air Force range. It is symmetric and validated on load.",
+    "",
+    "'crossesWater' is a RENDER HINT ONLY (draw the edge dashed). It is a subset of",
+    "'neighbours' and has no mechanical meaning whatsoever. It is NOT a sea route.",
+    "",
+    "SEA ROUTES are a separate edge type. They do not appear in this file. They are",
+    "generated per match from the seat-chosen count and frozen into matches.effective_map.",
+    "See docs/07-game-design.md section 7.10.",
+    "",
+    "'capabilities' is the territory's capability profile. It is authored explicitly here",
+    "and ALSO re-derived on load by rule CAP-1 and asserted equal (test TC-MAP-05):",
+    "    profile = {Infantry} union ({NavalForce} if coastal) union {cardSymbol}",
+    "Infantry / Cavalry / Artillery are card symbols only and grant no action (classic RISK).",
+    "AirForce and NavalForce are the two capabilities that unlock actions.",
+    "",
+    "'shape' (SVG path) is deliberately absent. Adjacency ships first, artwork in Phase 12.",
+    "'label' is an approximate anchor for the debug board view and for the army-count badge."
+  ],
+
+  "continents": [
+    { "key": "NA", "name": "North America", "bonus": 5, "colour": "#d4a05a" },
+    { "key": "SA", "name": "South America", "bonus": 2, "colour": "#7fa650" },
+    { "key": "EU", "name": "Europe",        "bonus": 5, "colour": "#5b8fb9" },
+    { "key": "AF", "name": "Africa",        "bonus": 3, "colour": "#c97f4e" },
+    { "key": "AS", "name": "Asia",          "bonus": 7, "colour": "#a4695f" },
+    { "key": "AU", "name": "Australia",     "bonus": 2, "colour": "#9b7fb0" }
+  ],
+
+  "territories": [
+    { "key": "alaska", "name": "Alaska", "continent": "NA", "label": [110, 130],
+      "coastal": true, "cardSymbol": "Cavalry", "capabilities": ["Infantry", "Cavalry", "NavalForce"],
+      "neighbours": ["northwest_territory", "alberta", "kamchatka"] },
+
+    { "key": "northwest_territory", "name": "Northwest Territory", "continent": "NA", "label": [250, 130],
+      "coastal": true, "cardSymbol": "Infantry", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["alaska", "alberta", "ontario", "greenland"] },
+
+    { "key": "greenland", "name": "Greenland", "continent": "NA", "label": [430, 90],
+      "coastal": true, "cardSymbol": "Artillery", "capabilities": ["Infantry", "Artillery", "NavalForce"],
+      "neighbours": ["northwest_territory", "ontario", "quebec", "iceland"] },
+
+    { "key": "alberta", "name": "Alberta", "continent": "NA", "label": [230, 220],
+      "coastal": false, "cardSymbol": "Infantry", "capabilities": ["Infantry"],
+      "neighbours": ["alaska", "northwest_territory", "ontario", "western_united_states"] },
+
+    { "key": "ontario", "name": "Ontario", "continent": "NA", "label": [330, 220],
+      "coastal": false, "cardSymbol": "Cavalry", "capabilities": ["Infantry", "Cavalry"],
+      "neighbours": ["northwest_territory", "greenland", "alberta", "quebec", "western_united_states", "eastern_united_states"] },
+
+    { "key": "quebec", "name": "Quebec", "continent": "NA", "label": [430, 220],
+      "coastal": true, "cardSymbol": "Artillery", "capabilities": ["Infantry", "Artillery", "NavalForce"],
+      "neighbours": ["greenland", "ontario", "eastern_united_states"] },
+
+    { "key": "western_united_states", "name": "Western United States", "continent": "NA", "label": [230, 320],
+      "coastal": true, "cardSymbol": "AirForce", "capabilities": ["Infantry", "AirForce", "NavalForce"],
+      "neighbours": ["alberta", "ontario", "eastern_united_states", "central_america"] },
+
+    { "key": "eastern_united_states", "name": "Eastern United States", "continent": "NA", "label": [350, 330],
+      "coastal": true, "cardSymbol": "Infantry", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["ontario", "quebec", "western_united_states", "central_america"] },
+
+    { "key": "central_america", "name": "Central America", "continent": "NA", "label": [260, 420],
+      "coastal": true, "cardSymbol": "NavalForce", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["western_united_states", "eastern_united_states", "venezuela"] },
+
+    { "key": "venezuela", "name": "Venezuela", "continent": "SA", "label": [330, 510],
+      "coastal": true, "cardSymbol": "Infantry", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["central_america", "peru", "brazil"] },
+
+    { "key": "peru", "name": "Peru", "continent": "SA", "label": [330, 620],
+      "coastal": true, "cardSymbol": "AirForce", "capabilities": ["Infantry", "AirForce", "NavalForce"],
+      "neighbours": ["venezuela", "brazil", "argentina"] },
+
+    { "key": "brazil", "name": "Brazil", "continent": "SA", "label": [440, 600],
+      "coastal": true, "cardSymbol": "NavalForce", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["venezuela", "peru", "argentina", "north_africa"] },
+
+    { "key": "argentina", "name": "Argentina", "continent": "SA", "label": [360, 740],
+      "coastal": true, "cardSymbol": "Cavalry", "capabilities": ["Infantry", "Cavalry", "NavalForce"],
+      "neighbours": ["peru", "brazil"] },
+
+    { "key": "iceland", "name": "Iceland", "continent": "EU", "label": [560, 150],
+      "coastal": true, "cardSymbol": "Infantry", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["greenland", "great_britain", "scandinavia"] },
+
+    { "key": "great_britain", "name": "Great Britain", "continent": "EU", "label": [570, 250],
+      "coastal": true, "cardSymbol": "NavalForce", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["iceland", "scandinavia", "northern_europe", "western_europe"] },
+
+    { "key": "scandinavia", "name": "Scandinavia", "continent": "EU", "label": [690, 130],
+      "coastal": true, "cardSymbol": "Cavalry", "capabilities": ["Infantry", "Cavalry", "NavalForce"],
+      "neighbours": ["iceland", "great_britain", "northern_europe", "ukraine"] },
+
+    { "key": "northern_europe", "name": "Northern Europe", "continent": "EU", "label": [700, 240],
+      "coastal": false, "cardSymbol": "Artillery", "capabilities": ["Infantry", "Artillery"],
+      "neighbours": ["great_britain", "scandinavia", "ukraine", "western_europe", "southern_europe"] },
+
+    { "key": "western_europe", "name": "Western Europe", "continent": "EU", "label": [620, 340],
+      "coastal": true, "cardSymbol": "Infantry", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["great_britain", "northern_europe", "southern_europe", "north_africa"] },
+
+    { "key": "southern_europe", "name": "Southern Europe", "continent": "EU", "label": [730, 330],
+      "coastal": true, "cardSymbol": "AirForce", "capabilities": ["Infantry", "AirForce", "NavalForce"],
+      "neighbours": ["northern_europe", "western_europe", "ukraine", "north_africa", "egypt", "middle_east"] },
+
+    { "key": "ukraine", "name": "Ukraine", "continent": "EU", "label": [830, 200],
+      "coastal": false, "cardSymbol": "Cavalry", "capabilities": ["Infantry", "Cavalry"],
+      "neighbours": ["scandinavia", "northern_europe", "southern_europe", "ural", "afghanistan", "middle_east"] },
+
+    { "key": "north_africa", "name": "North Africa", "continent": "AF", "label": [650, 470],
+      "coastal": true, "cardSymbol": "AirForce", "capabilities": ["Infantry", "AirForce", "NavalForce"],
+      "neighbours": ["brazil", "western_europe", "southern_europe", "egypt", "east_africa", "congo"] },
+
+    { "key": "egypt", "name": "Egypt", "continent": "AF", "label": [760, 470],
+      "coastal": true, "cardSymbol": "Infantry", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["southern_europe", "north_africa", "east_africa", "middle_east"] },
+
+    { "key": "east_africa", "name": "East Africa", "continent": "AF", "label": [820, 560],
+      "coastal": true, "cardSymbol": "NavalForce", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["egypt", "north_africa", "congo", "south_africa", "madagascar", "middle_east"] },
+
+    { "key": "congo", "name": "Congo", "continent": "AF", "label": [730, 590],
+      "coastal": true, "cardSymbol": "Cavalry", "capabilities": ["Infantry", "Cavalry", "NavalForce"],
+      "neighbours": ["north_africa", "east_africa", "south_africa"] },
+
+    { "key": "south_africa", "name": "South Africa", "continent": "AF", "label": [750, 700],
+      "coastal": true, "cardSymbol": "Artillery", "capabilities": ["Infantry", "Artillery", "NavalForce"],
+      "neighbours": ["congo", "east_africa", "madagascar"] },
+
+    { "key": "madagascar", "name": "Madagascar", "continent": "AF", "label": [870, 690],
+      "coastal": true, "cardSymbol": "Infantry", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["east_africa", "south_africa"] },
+
+    { "key": "ural", "name": "Ural", "continent": "AS", "label": [930, 150],
+      "coastal": true, "cardSymbol": "Cavalry", "capabilities": ["Infantry", "Cavalry", "NavalForce"],
+      "neighbours": ["ukraine", "siberia", "china", "afghanistan"] },
+
+    { "key": "siberia", "name": "Siberia", "continent": "AS", "label": [1030, 120],
+      "coastal": true, "cardSymbol": "Infantry", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["ural", "yakutsk", "irkutsk", "mongolia", "china"] },
+
+    { "key": "yakutsk", "name": "Yakutsk", "continent": "AS", "label": [1150, 110],
+      "coastal": true, "cardSymbol": "Artillery", "capabilities": ["Infantry", "Artillery", "NavalForce"],
+      "neighbours": ["siberia", "kamchatka", "irkutsk"] },
+
+    { "key": "kamchatka", "name": "Kamchatka", "continent": "AS", "label": [1290, 140],
+      "coastal": true, "cardSymbol": "Cavalry", "capabilities": ["Infantry", "Cavalry", "NavalForce"],
+      "neighbours": ["yakutsk", "irkutsk", "mongolia", "japan", "alaska"] },
+
+    { "key": "irkutsk", "name": "Irkutsk", "continent": "AS", "label": [1120, 200],
+      "coastal": false, "cardSymbol": "Infantry", "capabilities": ["Infantry"],
+      "neighbours": ["siberia", "yakutsk", "kamchatka", "mongolia"] },
+
+    { "key": "mongolia", "name": "Mongolia", "continent": "AS", "label": [1160, 280],
+      "coastal": true, "cardSymbol": "Artillery", "capabilities": ["Infantry", "Artillery", "NavalForce"],
+      "neighbours": ["siberia", "irkutsk", "kamchatka", "japan", "china"] },
+
+    { "key": "japan", "name": "Japan", "continent": "AS", "label": [1330, 280],
+      "coastal": true, "cardSymbol": "NavalForce", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["kamchatka", "mongolia"] },
+
+    { "key": "afghanistan", "name": "Afghanistan", "continent": "AS", "label": [960, 270],
+      "coastal": false, "cardSymbol": "Cavalry", "capabilities": ["Infantry", "Cavalry"],
+      "neighbours": ["ukraine", "ural", "china", "india", "middle_east"] },
+
+    { "key": "china", "name": "China", "continent": "AS", "label": [1120, 360],
+      "coastal": true, "cardSymbol": "AirForce", "capabilities": ["Infantry", "AirForce", "NavalForce"],
+      "neighbours": ["ural", "siberia", "mongolia", "afghanistan", "india", "siam"] },
+
+    { "key": "middle_east", "name": "Middle East", "continent": "AS", "label": [900, 400],
+      "coastal": true, "cardSymbol": "AirForce", "capabilities": ["Infantry", "AirForce", "NavalForce"],
+      "neighbours": ["southern_europe", "ukraine", "egypt", "east_africa", "afghanistan", "india"] },
+
+    { "key": "india", "name": "India", "continent": "AS", "label": [1020, 430],
+      "coastal": true, "cardSymbol": "Infantry", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["middle_east", "afghanistan", "china", "siam"] },
+
+    { "key": "siam", "name": "Siam", "continent": "AS", "label": [1180, 450],
+      "coastal": true, "cardSymbol": "Artillery", "capabilities": ["Infantry", "Artillery", "NavalForce"],
+      "neighbours": ["india", "china", "indonesia"] },
+
+    { "key": "indonesia", "name": "Indonesia", "continent": "AU", "label": [1230, 570],
+      "coastal": true, "cardSymbol": "Cavalry", "capabilities": ["Infantry", "Cavalry", "NavalForce"],
+      "neighbours": ["siam", "new_guinea", "western_australia"] },
+
+    { "key": "new_guinea", "name": "New Guinea", "continent": "AU", "label": [1370, 560],
+      "coastal": true, "cardSymbol": "Infantry", "capabilities": ["Infantry", "NavalForce"],
+      "neighbours": ["indonesia", "western_australia", "eastern_australia"] },
+
+    { "key": "western_australia", "name": "Western Australia", "continent": "AU", "label": [1290, 700],
+      "coastal": true, "cardSymbol": "Artillery", "capabilities": ["Infantry", "Artillery", "NavalForce"],
+      "neighbours": ["indonesia", "new_guinea", "eastern_australia"] },
+
+    { "key": "eastern_australia", "name": "Eastern Australia", "continent": "AU", "label": [1420, 690],
+      "coastal": true, "cardSymbol": "AirForce", "capabilities": ["Infantry", "AirForce", "NavalForce"],
+      "neighbours": ["new_guinea", "western_australia"] }
+  ],
+
+  "crossesWater": [
+    ["alaska", "kamchatka"],
+    ["greenland", "iceland"],
+    ["central_america", "venezuela"],
+    ["brazil", "north_africa"],
+    ["western_europe", "north_africa"],
+    ["southern_europe", "egypt"],
+    ["east_africa", "middle_east"],
+    ["siam", "indonesia"],
+    ["kamchatka", "japan"],
+    ["mongolia", "japan"]
+  ]
+}
