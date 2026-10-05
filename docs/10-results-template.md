@@ -266,33 +266,43 @@ Each screenshot is captured from **every client that implements the screen**.
 
 | # | Screen | Screen ID | Must show |
 |---|---|---|---|
-| 1 | Main menu | S-02 | |
-| 2 | Match setup | S-03 | Seat kinds including an AI seat |
-| 3 | Map selection | S-04 | Classic and at least one generated map |
-| 4 | Sea-route configuration | **S-05** | The count selector with its min/max bounds visible |
-| 5 | Seat setup | S-06 | A 2-player configuration showing the third `Neutral` seat |
-| 6 | Game board — classic | S-08 | Ownership colours, army counts, sea routes drawn distinctly from land edges |
-| 7 | Game board — generated map | S-08 | A different territory count |
-| 8 | Reinforcement | S-09 | The computed army count and its breakdown |
-| 9 | Attack — target selection | S-10 | Only legal targets highlighted (FR-66) |
-| 10 | Dice resolution | S-10 | The dice faces from the `DiceRolled` event |
-| 11 | Card hand and trade | S-11 | A valid three-card set and the escalation value offered |
-| 12 | Air Force targeting | **S-12** | The reachable set at range 5, with an unreachable territory visible for contrast |
-| 13 | Naval Force action | **S-13** | A target reachable only across a sea route |
-| 14 | Capability panel | **S-16** | A seat holding Air Force but not Naval, or the reverse |
-| 15 | Fortification | S-14 | |
-| 16 | Pause / save | S-15 | |
-| 17 | Resume list | S-17 | A saved match with its round and seat count |
-| 18 | Game over | S-18 | Both a domination result and a round-cap ranking |
-| 19 | Three clients, one match | — | The same board state in Unity, Godot and Flutter side by side |
-| 20 | Debug renderer | — | The Phase 3 board, to evidence that rules were playable before artwork |
+| 1 | Sign in / Register / Guest | S-02 | The guest path, which needs no account (D-24) |
+| 2 | Main menu | S-03 | The in-progress list with a resumable match |
+| 3 | Match setup | S-04 | Seat kinds including an AI seat; the **dice-faces** and **attack-range** steppers at their defaults |
+| 4 | Map selection | S-04 | Classic and at least one generated map |
+| 5 | Sea-route configuration | **S-05** | The count selector with its min/max bounds visible |
+| 6 | Lobby — seat list | S-06 | A 2-player configuration showing the third `Neutral` seat |
+| 7 | Claim phase | S-07 | Unclaimed territories selectable, everything else inert |
+| 8 | Game board — classic | S-08 | Ownership colours, army counts, sea routes drawn distinctly from land edges |
+| 9 | Game board — generated map | S-08 | A different territory count |
+| 10 | Reinforcement | S-09 | The computed army count and its breakdown |
+| 11 | Card hand and trade | S-10 | A valid three-card set and the escalation value offered |
+| 12 | Attack — target selection | S-11 | Only legal targets highlighted (FR-66) |
+| 13 | Dice resolution | S-11 | The dice faces from the `DiceRolled` event, and a tie resolved to the defender |
+| 14 | **Dice resolution at `diceSides = 7`** | S-11 | **Numeral faces including a 7** — the only visual evidence for D-29 / FR-84 |
+| 15 | Air Force targeting | **S-12** | The reachable set at range 5, with an unreachable territory visible for contrast |
+| 16 | Naval Force action | **S-13** | A target reachable only across a sea route |
+| 17 | Occupy | S-14 | The minimum-armies bound equal to the dice rolled (DR-06) |
+| 18 | Fortification | S-15 | A naval fortification, labelled as crossing a sea route |
+| 19 | Capability panel | **S-16** | A seat holding Air Force but not Naval, or the reverse |
+| 20 | Hand-over | S-17 | The blocking screen, with the outgoing seat's hand already cleared |
+| 21 | Game over | S-18 | Both a domination result and a round-cap ranking |
+| 22 | Replay viewer | S-19 | A logged attack replayed with its original dice faces |
+| 23 | Settings — this match | S-20 | Dice faces and attack range shown **read-only** |
+| 24 | Three clients, one match | — | The same board state in Unity, Godot and Flutter side by side |
+| 25 | Debug renderer | — | The Phase 3 board, to evidence that rules were playable before artwork |
 
-Screenshots 12, 13 and 19 are the ones a reader will look for. 12 and 13 are the only visual evidence that
-the locked extensions behave as specified; 19 is the only visual evidence for the three-client architecture
-claim, and it is the single most persuasive image this project can produce.
+S-01 (Splash) is deliberately not captured: it carries branding and a connectivity check, and
+evidences nothing. Every other screen in the §5.3 inventory appears above.
 
-Screenshot 20 evidences a process claim rather than a feature — that the core was playable before art
-existed (§8.10). It is worth keeping even after the artwork lands.
+Screenshots 14, 15, 16 and 24 are the ones a reader will look for. 15 and 16 are the only visual
+evidence that the locked extensions behave as specified; **14 is the only visual evidence for the
+configurable dice face count**, which is the question the supervisor actually asked; 24 is the only
+visual evidence for the three-client architecture claim, and it is the single most persuasive image
+this project can produce.
+
+Screenshot 25 evidences a process claim rather than a feature — that the core was playable before
+art existed (§8.10). It is worth keeping even after the artwork lands.
 
 ---
 

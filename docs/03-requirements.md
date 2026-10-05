@@ -80,12 +80,28 @@ Priority: **M** = mandatory · **S** = should have · **OPT** = optional.
 
 | ID | Requirement | Pri |
 |---|---|---|
-| FR-26 | The system shall permit a land attack only between land-adjacent territories, from a territory the attacker owns holding at least 2 armies and at least one more army than dice rolled. | M |
+| FR-26 | The system shall permit a land attack only between territories within the configured attack range of one another over land edges — **default range 1, which is land-adjacency** — from a territory the attacker owns holding at least 2 armies and at least one more army than dice rolled. | M |
 | FR-27 | The system shall roll 1–3 attacker dice and 1–2 defender dice, compare in descending order, and resolve ties **in the defender's favour**. | M |
 | FR-28 | On capture, the system shall require the attacker to move in at least as many armies as dice rolled, leaving at least 1 behind. | M |
 | FR-29 | The system shall generate every die from the match's injected seeded random source and return every roll as an event. | M |
 | FR-30 | The system shall record that the seat captured at least one territory this turn, for card eligibility. | M |
 | FR-31 | The system shall resolve land, Air Force and Naval Force attacks through **one** combat implementation. | M |
+
+### Configurable combat parameters
+
+Two requirements added after the requirement set was first baselined, in response to supervisory review
+(D-29, D-30). They keep the next free identifiers rather than being inserted in sequence, because
+renumbering a baselined set would silently invalidate every reference in §13.2, §9 and
+`appendices/E-pseudocode.md`.
+
+| ID | Requirement | Pri |
+|---|---|---|
+| FR-84 | The system shall take the number of die faces from configuration rather than from a constant, defaulting to **6**, and shall draw every die uniformly from `1…diceSides` using the match random source. The comparison rule of FR-27, including the defender's advantage on ties, shall hold unchanged at every face count. | M |
+| FR-85 | The system shall take the maximum land-attack distance from configuration rather than from a constant, defaulting to **1**, and shall compute reachable targets by breadth-first search to that depth over **land edges only** — never over sea routes — regardless of who owns the intervening territories. | M |
+
+Both values shall be **frozen into the match** at creation and read from the match thereafter, so that
+editing configuration cannot alter a match already in progress (the FR-10 guarantee, extended to these two
+keys). A change to either shall be rejected for an in-flight match rather than applied.
 
 ### Cards
 
@@ -189,9 +205,13 @@ Priority: **M** = mandatory · **S** = should have · **OPT** = optional.
 | FR-82 | The system shall run a seeded tournament across agents and map kinds and report a win-rate matrix. | S |
 | FR-83 | A trained policy shall record the fortify mode it was trained under, and loading shall fail if it differs from the active configuration. | OPT |
 
-**83 functional requirements, FR-01…FR-83: 70 mandatory, 8 should-have, 5 optional.** Every optional
+**85 functional requirements, FR-01…FR-85: 72 mandatory, 8 should-have, 5 optional.** Every optional
 requirement is optional in the strict sense of NFR-24 — the system is complete and playable with all five
 absent.
+
+The last two, FR-84 and FR-85, were added after the set was baselined and are listed with the Combat group
+above rather than at the end. Both are mandatory, and both default to the value that reproduces classic
+RISK, so the count of requirements that change observable behaviour at default configuration is **zero**.
 
 ## 3.3 Non-Functional Requirements
 

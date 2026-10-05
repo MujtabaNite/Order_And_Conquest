@@ -31,16 +31,19 @@ the single largest reason the suite below is finishable by a student team.
 
 | Level | Scope | Runs against | Count |
 |---|---|---|---|
-| **Unit** | One rule, one function, one validator | `Engine`, `Ai` in memory | 73 |
-| **Integration** | Two or more components across a real boundary | `Api` + `Engine` + PostgreSQL + SignalR | 18 |
+| **Unit** | One rule, one function, one validator | `Engine`, `Ai` in memory | 75 |
+| **Integration** | Two or more components across a real boundary | `Api` + `Engine` + PostgreSQL + SignalR | 19 |
 | **Client** | Interface behaviour in a built client | Each of the three clients | 4 |
 | **System** | A complete match, end to end | Deployed API + a client | 6 |
 | **AI** | Agent behaviour and reproducibility | `Sim` | 6 |
 | **Architecture** | Structural constraints the code must satisfy | The compiled solution | 5 |
 | **Optional (RL)** | Training and inference correctness | `rl/` + `Sim` | 4 |
 
-**116 test cases in total: 111 mandatory, 5 gated on the optional RL component.** No test case is
-mandatory if the requirement it verifies is optional, and none of the 111 depends on RL existing (NFR-24).
+**119 test cases in total: 114 mandatory, 5 gated on the optional RL component.** No test case is
+mandatory if the requirement it verifies is optional, and none of the 114 depends on RL existing (NFR-24).
+
+Three of the 119 were added with FR-84 and FR-85 (D-29, D-30): TC-CMB-09, TC-CMB-10 and TC-PER-07. The
+count was 116 before the configurable combat parameters existed.
 
 Architecture tests are listed separately because they are not tests of behaviour. They assert facts about
 the build — which assemblies reference which — and they fail at the only moment the failure is cheap to fix.
@@ -53,7 +56,7 @@ the build — which assemblies reference which — and they fail at the only mom
 | `TC-DET` | Determinism and replay | 4 | NFR-02 |
 | `TC-MAP` | Map validation and generation | 10 | FR-05…09 |
 | `TC-DRF` | Setup, reinforcement and draft | 6 | FR-17, FR-18, FR-23, FR-24, DR-08, DR-09 |
-| `TC-CMB` | Dice combat and occupation | 8 | FR-26…31 |
+| `TC-CMB` | Dice combat, occupation and configurable combat parameters | 10 | FR-26…31, FR-84, FR-85 |
 | `TC-CRD` | Cards, sets, escalation, forced trades | 10 | FR-32…38 |
 | `TC-CAP` | Capability derivation | 6 | FR-39…41 |
 | `TC-AIR` | Air Force | 6 | FR-42…46 |
@@ -62,7 +65,7 @@ the build — which assemblies reference which — and they fail at the only mom
 | `TC-FRT` | Fortification | 4 | FR-52 |
 | `TC-ELM` | Elimination | 3 | FR-53 |
 | `TC-VIC` | Victory and match end | 4 | FR-54, FR-55 |
-| `TC-PER` | Persistence, save and resume | 6 | FR-56…59, NFR-12…14 |
+| `TC-PER` | Persistence, save, resume and frozen match parameters | 7 | FR-56…59, FR-84, FR-85, NFR-12…14 |
 | `TC-API` | REST and SignalR contract | 8 | FR-60…64 |
 | `TC-SEC` | Security and redaction | 4 | NFR-09…11 |
 | `TC-AI` | Agent behaviour | 6 | FR-71…78, NFR-20 |
@@ -77,8 +80,8 @@ appendix F declares which:
 
 | Oracle | Used for | Example |
 |---|---|---|
-| **Closed form** | A value computable independently of the implementation | The five combat probabilities of §7.5 |
-| **Independent computation** | A property recomputed by different means inside the test | Air Force reach, recomputed by a naive BFS written in the test, compared against `Legal` |
+| **Closed form** | A value computable independently of the implementation | The 1 : 1 combat probability `(N−1)/2N` of §7.5, which at `N = 6` gives 15/36 |
+| **Independent computation** | A property recomputed by different means inside the test | Air Force reach, recomputed by a naive BFS written in the test, compared against `Legal`; combat odds for any dice pairing, recomputed by exhaustive enumeration over `N^(a+d)` outcomes |
 | **Invariant** | A property that must hold after *any* action | Every territory has ≥ 1 army; army totals change only by combat losses |
 | **Golden file** | A recorded expected output, reviewed once by a human | A serialised state hash after a fixed action sequence |
 
@@ -100,12 +103,12 @@ Two places need more than example-based tests:
 
 ### Test data
 
-| Fixture | Purpose |
-|---|---|
-| `world_classic.json` | The authored board. The same file the product ships |
-| `tiny_12.json` | A 12-territory hand-authored map for fast rule tests and curriculum stage 1 |
-| `invalid_*.json` | One deliberately broken map per validation rule V-01…V-12 |
-| Fixed seeds | A small set of named seeds with recorded outcomes, used across determinism tests |
+| Fixture              | Purpose                                                                          |
+| -------------------- | -------------------------------------------------------------------------------- |
+| `world_classic.json` | The authored board. The same file the product ships                              |
+| `tiny_12.json`       | A 12-territory hand-authored map for fast rule tests and curriculum stage 1      |
+| `invalid_*.json`     | One deliberately broken map per validation rule V-01…V-12                        |
+| Fixed seeds          | A small set of named seeds with recorded outcomes, used across determinism tests |
 
 The `invalid_*` set is what makes the validation gate real. A validator with no negative tests is a
 validator that has never been shown to reject anything.
@@ -150,10 +153,13 @@ specification's own list.
 | Reinforcement calculation | TC-DRF-01, 02 | Closed form: `max(3, ⌊t/3⌋)`. Includes the floor at 1–9 territories (DR-08) |
 | Continent bonus | TC-DRF-03, 04, 05 | Closed form. Full continent awards; **one missing territory awards nothing** |
 | Legal attack adjacency | TC-CMB-01, TC-MAP-02 | Independent computation from the map file's neighbour lists |
-| Air Force 5-edge range | TC-AIR-01, 02, 03 | Independent BFS written in the test; sea routes excluded from the edge set |
+| Legal attack **range** above the default | TC-CMB-09 | Independent computation: a naive BFS to depth `attackRange` written in the test, compared against `Legal`. At `attackRange: 1` the result must equal the neighbour list exactly, which is how the default is shown to be classic RISK |
+| Air Force range | TC-AIR-01, 02, 03 | Independent BFS written in the test; sea routes excluded from the edge set |
 | Sea-route validation | TC-SEA-02, 03, 04 | Invariant: both endpoints coastal, not land-adjacent, no duplicates |
 | Naval movement/attack/fortification | TC-NAV-01, 02, 03, 04 | Invariant: identical combat resolution to land; fortify allowance shared |
-| Dice combat | TC-CMB-02, 03, 04, 05, 06 | **Closed form** — the five exact fractions of §7.5 |
+| Dice combat | TC-CMB-02, 03, 04, 05, 06 | **Closed form** — the five exact fractions of §7.5, which are the `diceSides = 6` instance |
+| Configurable **face count** | TC-CMB-10 | Independent computation: enumeration over `N^(a+d)` outcomes at `N = 2`, `7` and `20`. Asserts the defender still wins ties at every `N`, and that `N = 6` reproduces the five published fractions |
+| Both combat parameters **frozen into the match** | TC-PER-07 | Invariant: editing `shared/rules.json` after creation changes neither the legal set nor the dice domain of a match already in progress |
 | Card set recognition | TC-CRD-03, 04, 05, 06 | Enumeration over all symbol combinations; four- and five-card sets rejected |
 | Card trade progression | TC-CRD-07 | Closed form against the escalation table; monotonic and match-wide |
 | Forced trade condition | TC-CRD-08, 09 | Invariant: no other action is legal while holding 5+ at draft |
@@ -165,9 +171,9 @@ specification's own list.
 | Map validation | TC-MAP-01…05, and the `invalid_*` set | Negative tests: one broken map per rule V-01…V-12 |
 | Deterministic RNG behaviour | TC-DET-01…04 | Golden state hash + position agreement |
 
-### Four of these are load-bearing
+### Five of these are load-bearing
 
-Most of the table is routine. Four cases catch defects that are silent in play and destructive downstream:
+Most of the table is routine. Five cases catch defects that are silent in play and destructive downstream:
 
 **TC-CMB-03 — the defender wins ties.** Inverting one comparison shifts every combat probability by
 several percent. The game still plays. Every smoke test still passes. Every agent trained against it
@@ -184,6 +190,22 @@ would break exactly this test and nothing else.
 **TC-DET-04 — identical state across platforms.** The dictionary-enumeration trap of §8.3. Passing on one
 machine and failing on another is the defect class that costs the most time to diagnose, and the test that
 catches it costs one CI job on a second runner image.
+
+**TC-PER-07 — the combat parameters are frozen at creation.** This is the newest of the five and the most
+insidious, because the failure is invisible in both directions. If `diceSides` is read live from
+configuration rather than from `matches.options`, a match replayed after the file was edited consumes the
+**same** `rng_position` values and produces **different** faces — so every determinism test still passes
+while the replay silently diverges from the log. If `attackRange` is read live, the replay instead rejects
+a logged action as illegal, which at least fails loudly. The first mode is the one that needs a test
+(D-29, D-30 consequence 1).
+
+> **A note on TC-AIR-02, which D-30 re-scoped rather than added.** The case was written as *"an attack at
+> distance 6 is never legal"* — a sentence that was true only while the land attack was pinned to
+> adjacency. With `attackRange` configurable up to 10 it is false by configuration, not by defect. The
+> assertion is therefore stated against the configured bounds: **no attack is legal beyond
+> `max(combat.attackRange, airForce.maxRange)`**, and at default configuration that evaluates to 5, which
+> is the original assertion. This is the one pre-existing case the new mechanics invalidated, and it is
+> recorded here rather than quietly rewritten.
 
 ### Architecture tests
 
@@ -205,6 +227,7 @@ Each area from §36, with the boundary each case actually crosses.
 | API ↔ database | TC-PER-02, 03, 04, 05 | Real PostgreSQL. Key agreement with `effective_map`, append-only privilege, transactional atomicity |
 | SignalR state updates | TC-API-06 | Hub fan-out: each connected seat receives its **own** redacted state (FR-63, NFR-11) |
 | Save/resume | TC-PER-01, 06 | Full round trip. The legal-action set after resume is **identical**; a procedural map and its sea routes are not regenerated (FR-10) |
+| Frozen match parameters | TC-PER-07 | Real PostgreSQL. `matches.options` is the source of `diceSides` and `attackRange` for an in-flight match; editing `shared/rules.json` between two actions of the same match changes nothing (FR-84, FR-85) |
 | AI turns | TC-API-07 | `POST /ai-step` advances exactly one action and increments the version by one |
 | All three clients against the same backend | TC-UI-04 | Three clients joined to one match observe the same state after the same action. *Counted at the Client level; listed here because the boundary it crosses is integration* |
 
@@ -295,13 +318,13 @@ silently changing behaviour would make every evaluation number in §10.3 meaning
 | Level | Cases | Passed | Failed | Skipped | Notes |
 |---|---|---|---|---|---|
 | Architecture | 5 | | | | |
-| Unit | 73 | | | | |
-| Integration | 18 | | | | |
+| Unit | 75 | | | | |
+| Integration | 19 | | | | |
 | Client | 4 | | | | Run per client; three runs |
 | System | 6 | | | | |
 | AI | 6 | | | | |
 | RL *(optional)* | 4 | | | | Skipped entirely if Phase 13 is not reached |
-| **Total** | **116** | | | | |
+| **Total** | **119** | | | | |
 
 ### Coverage — reported, not gated
 

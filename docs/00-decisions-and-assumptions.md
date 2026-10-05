@@ -200,7 +200,9 @@ be changed by the team without touching the engine.
 
 ---
 
-## Part C — Genuinely unspecified details, decided to proceed
+## Part C — Details the locked prompt leaves open, and questions reopened after the lock
+
+### C.1 — Genuinely unspecified details
 
 | ID | Item | Decision | Why this one |
 |---|---|---|---|
@@ -224,6 +226,56 @@ be changed by the team without touching the engine.
 > them. Both are `shared/rules.json` keys rather than code, so confirming the other branch is a data edit
 > and a re-run of TC-CRD-06 — not a rewrite. The reasoning is set out in
 > [`appendices/E-pseudocode.md`](../appendices/E-pseudocode.md) §E.8.1.
+
+### C.2 — Post-lock additions from supervisory review
+
+D-15…D-28 above record things the locked prompt left *silent*. The two entries below are different in
+provenance and the register should not blur them: the prompt is not silent on six-sided dice or on
+adjacency-based attack — it specifies both. **Supervisory review asked whether each could be a
+configurable parameter rather than a constant.** They are recorded here, after the lock, as scope
+additions rather than as clarifications.
+
+Both are resolved by **generalisation with a default that reproduces the locked behaviour exactly**, which
+is what makes them additive rather than a rules change:
+
+| ID | Question | Decision | Why this one |
+|---|---|---|---|
+| D-29 | Whether the number of **die faces** is fixed at six | **Configurable** — `combat.diceSides`, default `6`, range 2…20 | The six faces come from the physical object, not from any rule. Every rule in §7.5 is stated over *ordered comparison of drawn values*, and none of them mentions the number six. Defaulting to 6 means a match created without touching the key is bit-for-bit the classic game, so the generalisation costs nothing at the default and the constant never reappears in code. |
+| D-30 | Whether **attack distance** is fixed at adjacency | **Configurable** — `combat.attackRange`, default `1`, range 1…10 | Adjacency is distance 1 in the land graph, so "adjacent" is already the `R = 1` case of "within range R". At the default the legal set is identical to the neighbour list, and the upper bound of 10 is the measured diameter of the classic land graph (§7.8) — i.e. the whole landmass, beyond which larger values mean nothing. |
+
+Four consequences follow that are easy to miss, and each is load-bearing:
+
+1. **Both values must be frozen into the match, not read live from `rules.json`.** They are stored in
+   `matches.options` alongside the allocation and fortify modes, for the same reason
+   `matches.effective_map` is frozen (FR-10). `diceSides` changes the *values* drawn from the random
+   source while leaving the *number* of draws untouched, so a match replayed under a different
+   `diceSides` consumes identical `rng_position` values and silently produces different dice —
+   determinism would appear to hold while the replay diverged. `attackRange` changes the legal set, so a
+   replay under a different range would reject a logged action outright. Editing either key must be
+   incapable of affecting a match already in progress.
+2. **Defender-wins-ties is independent of the face count** (DR-07). The rule is `attacker > defender`, a
+   strict comparison between two drawn values; it does not reference the size of the domain they are drawn
+   from. No part of §7.5 needs restating for `diceSides ≠ 6`.
+3. **The five exact combat fractions are the `diceSides = 6` instance of a general oracle, not a separate
+   oracle.** Their denominators — 36, 216, 1296, 216, 7776 — are `6^(a+d)`. The oracle generalises to
+   exhaustive enumeration over `N^(a+d)` equally likely outcomes, which is the "independent computation"
+   oracle kind §9.1 already defines. See §7.5 and `appendices/F-test-cases.md` TC-CMB-02…06.
+4. **At `attackRange ≥ 2`, range stops being what distinguishes the Air Force.** A ranged land attack is a
+   breadth-first search to depth R over land edges — the *same computation* as the Air Force range check
+   (D-11). The two therefore share one range function rather than growing a second one, which preserves
+   DR-19's single combat resolution. What still distinguishes the Air Force is the `attacksPerTurn: 1`
+   limiter (AIR-1) and the capability requirement (CAP-1, CAP-2) — **not** its reach. §7.8 states this
+   explicitly, because an Air Force subsystem that looks redundant is one a later reader will delete.
+
+Raising `attackRange` **cannot** make a sea route traversable. The range function is handed the land graph
+and has no access to `map.seaRoutes` (C-08), so the structural exclusion that DR-18 and TC-AIR-03 depend on
+survives any value of R. Likewise, the search is over land *edges* regardless of who owns the intervening
+territories: reach is geographic, not controlled, exactly as it already is for the Air Force.
+
+> **D-29 and D-30 are supervisor-facing and should be demonstrated, not just documented.** Each is one
+> `shared/rules.json` value whose effect is visible in play — a seven-faced die changes the odds table, a
+> range of 2 changes the highlighted attack targets on the board. §9.2's parameterised oracles and the dice
+> renderer of `design/04-dice-ui-ux.md` exist so that both can be shown working rather than asserted.
 
 ---
 
@@ -283,5 +335,8 @@ Submersion is not required at all (D-05). No optional feature is promoted to man
 | D-13 | §7.10 sea routes, FR-15/16, TC-SEA-01…05 |
 | D-14 | `appendices/D-capability-mapping-decision-table.md`, TC-MAP-05 |
 | D-15…D-26 | `shared/rules.json`, §7, §5.9 security |
+| D-27, D-28 | `shared/rules.json` → `cards`, §7.6, `appendices/E-pseudocode.md` §E.8.1, TC-CRD-06 |
+| D-29 | `shared/rules.json` → `combat.diceSides`, §7.5, FR-84, `matches.options` (§6.6), `appendices/E-pseudocode.md` §E.3.3/§E.6, TC-CMB-10, TC-PER-07, `design/04-dice-ui-ux.md` |
+| D-30 | `shared/rules.json` → `combat.attackRange`, §7.5, §7.8, FR-85, `matches.options` (§6.6), `appendices/E-pseudocode.md` §E.4.3/§E.10, TC-CMB-09, TC-AIR-02, TC-PER-07, `design/03-map-ui-ux.md` |
 | O-01…O-06 | §11 future work, `docs/09-testing.md` risk notes |
 | Part E | `docs/14-implementation-safety-checklist.md` |

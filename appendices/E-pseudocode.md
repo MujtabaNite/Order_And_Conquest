@@ -19,6 +19,7 @@
 | `\|S\|` | Cardinality |
 | `rules.*` | A value read from [`shared/rules.json`](../shared/rules.json) — never a literal in code |
 | `map.*` | A value read from the frozen `matches.effective_map` — never re-read from disk |
+| `opt.*` | A value read from the frozen `matches.options` — **`opt.diceSides` and `opt.attackRange` are read only from here**, never from `rules.*` (FR-84, FR-85, D-29, D-30) |
 | `rng` | The injected `IRandomSource`. **The only source of randomness in the engine** |
 | `fail X` | Raise a named, typed failure. Never return a partially-applied state |
 | `assert` | A condition a test pins. Each one names its test case |
@@ -31,6 +32,12 @@ Three standing rules govern every routine below:
    random source (FR-76, TC-AI-02).
 3. **Dice draw order is part of the specification.** All attacker dice first, in index order, then all
    defender dice, in index order. Any other order produces a different match from the same seed.
+4. **Configured combat parameters are frozen at `Start`, not read live.** `opt.diceSides` and
+   `opt.attackRange` are copied into `matches.options` by `Start` and read from there for the rest of the
+   match (FR-84, FR-85). `rules.combat.diceSides` and `rules.combat.attackRange` are *defaults for
+   creating a match*, nothing more. The reason is specific to `diceSides`: a live read would leave
+   `rng_position` advancing identically while producing different faces, so a replay would diverge with
+   every determinism test still passing. **TC-PER-07** is the guard.
 
 ---
 
@@ -55,8 +62,9 @@ the legal list rather than computing one (§5.2).
 ```
 function Start(map, options, rng):
     ValidateMap(map)                                   // E.16 — V-01…V-12, throws on failure
+    opt ← FreezeOptions(options)                       // E.3.3 — resolve and range-check, then freeze
 
-    seats ← BuildSeats(options)                        // E.3.1
+    seats ← BuildSeats(opt)                            // E.3.1
     state ← new GameState with
         seats        ← seats
         phase        ← Claim
@@ -64,11 +72,14 @@ function Start(map, options, rng):
         currentSeat  ← 0
         tradeIndex   ← 0
         map          ← map
+        options      ← opt                             // frozen alongside the map (FR-10, FR-84, FR-85)
         territories  ← { t.key ↦ (owner: none, armies: 0) for t ∈ map.territories }
         cards        ← ShuffleDeck(map, rng)           // E.3.2
         armiesToPlace ← { s ↦ rules.setup.startingArmies[|seats|] for s ∈ seats }
 
     assert |state.territories| = |map.territories|     // TC-PER-02 — never 42 by assumption
+    assert state.options.diceSides   ≥ 2               // TC-CMB-10
+    assert state.options.attackRange ≥ 1               // TC-CMB-09
     return state
 ```
 
@@ -113,6 +124,38 @@ function ShuffleDeck(map, rng):
 `deckOrder` is **written once and stored** rather than re-derived from the seed on resume. Storing it
 means a resumed match cannot possibly deal a different card, and it keeps dealing independent of
 `rngPosition` (Appendix B, TC-PER-01).
+
+### E.3.3 FreezeOptions — the configured combat parameters
+
+```
+function FreezeOptions(options):
+    opt ← Clone(options)
+
+    // Two parameters the creator may set; both default to the classic rule (D-29, D-30)
+    opt.diceSides   ← options.diceSides   ?? rules.combat.diceSides        // default 6
+    opt.attackRange ← options.attackRange ?? rules.combat.attackRange      // default 1
+
+    if opt.diceSides   ∉ [ rules.combat.diceSidesMin   … rules.combat.diceSidesMax   ]:
+        fail InvalidOptions("diceSides")                                   // 2 … 20
+    if opt.attackRange ∉ [ rules.combat.attackRangeMin … rules.combat.attackRangeMax ]:
+        fail InvalidOptions("attackRange")                                 // 1 … 10
+
+    return Immutable(opt)
+```
+
+Validation happens **once, here**, so no routine downstream of `Start` ever range-checks either value
+again. Rejection is at match creation, where it costs the creator a corrected form; acceptance of a bad
+value would cost a mid-match failure in `ApplyAttack`, which has no legal way to report one.
+
+`Immutable` is the load-bearing word. These two values are persisted in `matches.options` and read from
+the match for the rest of its life. The failure mode this prevents is narrow and nasty, and is worth
+stating in full because no determinism test catches it:
+
+> `diceSides` is read live from `shared/rules.json`. The match was created at 6; the file is later edited
+> to 7. On resume, every call to `rng.NextInt` consumes **exactly one draw** as before, so
+> `rng_position` tracks the log perfectly and TC-DET-01…04 all pass — while every face, every combat
+> outcome and therefore the whole match diverges from the recorded log. **TC-PER-07** asserts the values
+> come from the match row.
 
 ---
 
@@ -188,13 +231,16 @@ Three attack families, one after another, all optional.
 function LegalAttack(state, seat):
     actions ← []
     caps    ← SeatCapabilities(state, seat)            // E.9
+    opt     ← state.options                            // frozen at Start (E.3.3)
 
     for each o ∈ state.territories where o.owner = seat and o.armies ≥ rules.combat.minArmiesToAttack:
         maxDice ← min(rules.combat.attackerMaxDice, o.armies - rules.combat.mustLeaveBehind)
 
-        // 1 · land
-        for each n ∈ map.landNeighbours(o.key) where state.territories[n].owner ≠ seat:
-            actions ∪← [ Attack(o.key, n, d) for d ∈ 1 … maxDice ]
+        // 1 · land — within the configured range over land edges. At range 1 this set is
+        //            exactly map.landNeighbours(o.key), which is the classic rule (FR-85, D-30)
+        for each (n, dist) ∈ WithinRange(map, o.key, opt.attackRange):
+            if state.territories[n].owner ≠ seat:
+                actions ∪← [ Attack(o.key, n, d) for d ∈ 1 … maxDice ]
 
         // 2 · air — capability-gated, once per turn
         if AirForce ∈ caps and not state.airAttackUsed[seat]:
@@ -212,12 +258,18 @@ function LegalAttack(state, seat):
     return actions
 ```
 
-Three notes, each of which is a rule that would otherwise be lost:
+Four notes, each of which is a rule that would otherwise be lost:
 
 - `maxDice` encodes rule 1 of §7.5 — the attacker needs **more armies than dice rolled**. With 3 armies
   and `mustLeaveBehind = 1`, `maxDice = 2`, not 3.
+- The land branch now shares `WithinRange` with the Air Force branch, at a different range. **Only the
+  range argument differs.** Intervening ownership is deliberately not consulted: the path is measured over
+  the land graph, not over owned territory, so a range-3 attack may cross two enemy territories. The two
+  surviving distinctions of an Air Force attack are therefore `airForce.attacksPerTurn = 1` and the
+  capability requirement — not the existence of range itself (§7.8).
 - The Air Force branch calls `WithinRange`, which is handed **`map.landNeighbours`** and has no access to
-  `map.seaRoutes` at all. C-08 is enforced by construction, not by a condition (§5.4).
+  `map.seaRoutes` at all. C-08 is enforced by construction, not by a condition (§5.4). The land branch
+  inherits that exclusion rather than re-stating it, so a configured range never opens a sea crossing.
 - Capability appears here as a **gate only**. Holding `NavalForce` while no sea route touches an owned
   territory yields no naval action, which is the case Appendix D §D.5 records and TC-NAV-03 asserts.
 
@@ -253,6 +305,39 @@ function FortifyReach(state, seat, origin, caps):
 
 A naval fortification consumes the same single fortification as a land one (D-19, FR-49) — which is why
 `state.fortifyUsed[seat]` is checked once, before the mode switch, and not per edge type.
+
+A naval fortification is **not a distinct action type**. It is `Fortify(origin, destination, n)` where the
+destination happens to be the far end of a sea route rather than a land neighbour. Nothing in the *action*
+distinguishes the two, and nothing needs to: the engine re-derives reach from the map when it re-checks
+legality (§E.5). The resulting `ArmiesFortified` event does carry `viaSeaRoute`, so a client can label the
+move "by sea" after the fact from the event, or before the fact from the **map** — never from the action.
+
+### E.4.5 Occupy
+
+```
+function LegalOccupy(state, seat):
+    p       ← state.pendingOccupy
+    assert p ≠ none                                     // Occupy is only reachable with one pending
+    available ← state.territories[p.origin].armies - rules.combat.mustLeaveBehind
+
+    return [ Occupy(n) for n ∈ p.minArmies … available ]
+```
+
+Three notes:
+
+- The lower bound is `p.minArmies`, which `ApplyAttack` set to the **attacker's dice count** (§E.6, line
+  `minArmies: aDice`). Moving in at least as many armies as dice rolled is DR-06; leaving at least
+  `mustLeaveBehind` behind is DR-04. Both bounds are therefore data already in the state, not a
+  recomputation.
+- **The list is never empty, and that is not obvious.** `Legal` is total (§E.1) and the `Occupy` branch of
+  §E.4 deliberately offers no `EndPhase`, so an empty list here would be a dead state with no exit. It
+  cannot arise: a capture requires `dLoss = defender.armies`, and `dLoss ≤ min(aDice, dDice)` with
+  `dDice = min(2, defender.armies)`. At `defender.armies ≥ 3` that bound is 2 and no capture is possible;
+  at 2 or 1 every compared pair must have gone to the attacker, so `aLoss = 0`. **An attacker never loses
+  an army in the exchange that captures.** `origin.armies` is therefore unchanged from the moment the
+  attack was ruled legal, where `aDice ≤ origin.armies - mustLeaveBehind` already held — so
+  `available ≥ p.minArmies` and at least one `Occupy` is always offered.
+- `p.kind` is not consulted. Occupation is identical for land, Air Force and naval captures (D-18, §E.12).
 
 ---
 
@@ -336,10 +421,11 @@ function ApplyAttack(state, action, kind):
     o ← action.origin;  t ← action.target
     aDice ← action.dice
     dDice ← min(rules.combat.defenderMaxDice, state.territories[t].armies)
+    N     ← state.options.diceSides                   // frozen at Start; 6 by default (FR-84)
 
     // Draw order is specification: all attacker dice, then all defender dice
-    aRolls ← [ rng.NextInt(1, 7) for 1 … aDice ]
-    dRolls ← [ rng.NextInt(1, 7) for 1 … dDice ]
+    aRolls ← [ rng.NextInt(1, N + 1) for 1 … aDice ]
+    dRolls ← [ rng.NextInt(1, N + 1) for 1 … dDice ]
 
     aSorted ← SortDescending(aRolls)
     dSorted ← SortDescending(dRolls)
@@ -378,7 +464,7 @@ trained against it. **TC-CMB-02…06** assert the exact fractions below against 
 **TC-CMB-03** is the defender-wins-ties case specifically (§9.2) — which is why that defect cannot
 survive a test run:
 
-| Attacker : defender dice | Attacker wins |
+| Attacker : defender dice | Attacker wins, at `diceSides = 6` |
 |---|---|
 | 1 : 1 | 15 / 36 |
 | 2 : 1 | 125 / 216 |
@@ -386,11 +472,50 @@ survive a test run:
 | 1 : 2 | 55 / 216 |
 | 3 : 2, attacker takes both | 2890 / 7776 |
 
+### The table is one row of a family
+
+Those five fractions are the `diceSides = 6` instance of exhaustive enumeration over `N^(a+d)` equally
+likely outcomes — which is exactly the shape of every denominator above: 36, 216, 1296, 216, 7776. Once
+`diceSides` is configurable (FR-84) the oracle does not change kind; it takes a parameter. **The resolver
+above is already correct at every `N`** — nothing in it mentions 6 — which is the whole point of reading
+`N` from the match rather than writing a literal.
+
+For one die against one die the result has a closed form:
+
+```
+P(attacker wins) = (N - 1) / (2N)
+```
+
+Of the `N²` outcomes, `N` are ties (all lost by the attacker) and the remaining `N² - N` split evenly, so
+the attacker takes `(N² - N)/2`. At `N = 6` that is 15/36, the first row above. This was checked against
+enumeration for every `N` from 2 to 20.
+
+The supervisor's example, `diceSides = 7`, computed by the same enumerator that reproduces the d6 column:
+
+| Attacker : defender | d6 | d7 | Change |
+|---|---|---|---|
+| 1 : 1 | 15/36 = 0.4167 | 21/49 = 0.4286 | +1.19 pp |
+| 2 : 1 | 125/216 = 0.5787 | 203/343 = 0.5918 | +1.31 pp |
+| 3 : 1 | 855/1296 = 0.6597 | 1617/2401 = 0.6735 | +1.38 pp |
+| 1 : 2 | 55/216 = 0.2546 | 91/343 = 0.2653 | +1.07 pp |
+| 3 : 2, both | 2890/7776 = 0.3717 | 6559/16807 = 0.3903 | +1.86 pp |
+
+Every figure moves in the **attacker's** favour, and that is not an accident of the arithmetic. The
+defender's whole structural advantage is the tie, and `P(tie) = 1/N` on any compared pair. Raising the
+face count makes ties rarer, so a larger die weakens the defender and pushes 1:1 combat toward a coin flip
+from below — `(N-1)/(2N) → ½` as `N → ∞`, never reaching it. Lowering it to 2 gives the defender 1/4.
+That relationship is the answer to the supervisor's question: the parameter is not cosmetic, and the
+direction of its effect is derivable rather than something to be discovered by playtesting.
+
 ### Dice are events, not return values
 
 `DiceRolled` carries **every face**, in roll order (FR-29). Clients animate the faces they are given and
 never generate one (FR-69). That is what makes a replay visually identical rather than merely
 outcome-identical, and it is the property that makes client-side cheating uninteresting (§5.9).
+
+This is also why a configurable face count costs the client nothing: the renderer is handed a face count
+and a list of values and has no opinion about either, so a d7 needs no new event, no new endpoint and no
+new engine path — only a die face that can draw a 7 ([`design/04-dice-ui-ux.md`](../design/04-dice-ui-ux.md)).
 
 ---
 
@@ -589,7 +714,10 @@ set-matching symbols and are computed only so the profile is complete. The full 
 
 ---
 
-## E.10 WithinRange — Air Force reach
+## E.10 WithinRange — the shared range search
+
+Two callers, one function: land attacks at `opt.attackRange` (FR-85) and Air Force attacks at
+`rules.airForce.maxRange` (FR-45). There is **one** BFS in the engine, not two.
 
 ```
 function WithinRange(map, origin, maxRange):
@@ -610,7 +738,13 @@ function WithinRange(map, origin, maxRange):
 Breadth-first over the land adjacency graph. `map.seaRoutes` is a **separate structure that this function
 cannot reach** — it is not a parameter and not a field of the graph it is handed. C-08 ("sea routes are
 excluded from Air Force range entirely") is therefore a structural property rather than a conditional that
-a later edit could remove (§5.4).
+a later edit could remove (§5.4). Because the land branch of `LegalAttack` goes through the same function,
+a configured attack range inherits that exclusion for free: no range value can produce a sea crossing.
+
+At `maxRange = 1` the returned set is exactly `map.landNeighbours(origin)` with distance 1, which is why
+the default configuration reproduces classic adjacency without a special case. **TC-CMB-09** pins the
+range-dependent legality and **TC-AIR-02** asserts that no attack of any kind is legal beyond
+`max(opt.attackRange, rules.airForce.maxRange)` — which evaluates to 5 at the defaults.
 
 Complexity is O(V + E) per call, bounded by the frontier check: 42 vertices and 83 edges on the classic
 board, so an exhaustive legal-list build over all owned origins is trivially affordable.
@@ -623,9 +757,15 @@ board, so an exhaustive legal-list build over all owned origins is trivially aff
 | Best origin | Ukraine — 40 of 41 |
 | Mean | 31.7 |
 
+The same reach table now serves both callers, so it is also the table that says what a configured attack
+range *means* on this board — range 1 reaches 9.6 % of ordered pairs, range 3 reaches 39.3 %, range 5
+reaches 77.2 % and range 10 reaches all of them (§7.8).
+
 A range-5 capture may be adjacent to nothing else the attacker owns. The attacker then holds an isolated
 pocket it cannot reinforce by land fortification. **This is a direct consequence of the locked rule, not a
-defect** — TC-AIR-04 asserts it so nobody "fixes" it (§7.8).
+defect** — TC-AIR-04 asserts it so nobody "fixes" it (§7.8). Raising `attackRange` above 1 makes that
+situation ordinary rather than exceptional, which is worth knowing before a reviewer reads the pocket as a
+bug.
 
 ---
 
@@ -1098,13 +1238,14 @@ asserts that neither appears in any response for a non-owning seat.
 | Algorithm | Section | Implementation | Tests |
 |---|---|---|---|
 | `Start`, deck shuffle | E.3 | `Engine/GameEngine`, `Engine/Rules/SetupRules` | TC-PER-02, TC-PER-01, TC-CRD-01 |
+| `FreezeOptions` | E.3.3 | `Engine/Rules/OptionsResolver` | **TC-PER-07**, TC-CMB-09, TC-CMB-10 |
 | `Legal` | E.4 | `Engine/Actions/LegalActionBuilder` | TC-AI-01, TC-ARC-05 |
 | `Apply` | E.5 | `Engine/GameEngine` | TC-ARC-02, TC-ARC-03 |
-| Combat | E.6 | `Engine/Rules/CombatRules` | **TC-CMB-01…08**, esp. TC-CMB-03 |
+| Combat | E.6 | `Engine/Rules/CombatRules` | **TC-CMB-01…10**, esp. TC-CMB-03 |
 | Draft | E.7 | `Engine/Rules/DraftRules` | TC-DRF-01…06 |
 | Cards | E.8 | `Engine/Rules/CardRules` | TC-CRD-01…10 |
 | CAP-1 / CAP-2 | E.9 | `Engine/Rules/CapabilityRules` | TC-CAP-01…06, TC-MAP-05 |
-| `WithinRange` | E.10 | `Engine/Map/RangeSearch` | TC-AIR-01…06 |
+| `WithinRange` | E.10 | `Engine/Map/RangeSearch` | TC-AIR-01…06, **TC-CMB-09** |
 | Naval | E.11 | `Engine/Rules/NavalRules` | TC-NAV-01…06 |
 | Occupy | E.12–E.13 | `Engine/Rules/CombatRules` | TC-CMB-07, TC-CMB-08 |
 | Elimination, victory | E.14 | `Engine/Rules/VictoryRules` | TC-ELM-01…03, TC-VIC-01…04 |
@@ -1125,6 +1266,12 @@ asserts that neither appears in any response for a non-owning seat.
 Both are recorded in [`00-decisions-and-assumptions.md`](../docs/00-decisions-and-assumptions.md) Part C
 and both need a reviewer's confirmation before Phase 4, because they change how often a forced trade is
 satisfiable and therefore every card-family test oracle.
+
+Two further decisions, **D-29** (`combat.diceSides`) and **D-30** (`combat.attackRange`), arrived from
+supervisory review after the rule lock and are recorded in Part C.2 of the same file. They are reflected
+here in E.1 rule 4, E.3, E.3.3, E.4.3, E.6 and E.10. At their defaults — 6 and 1 — every routine in this
+appendix behaves exactly as it did before they existed, which is the property that let them land without
+reopening a single locked decision.
 
 ---
 

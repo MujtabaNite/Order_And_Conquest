@@ -705,7 +705,7 @@ badly under pressure:
 | 1st | Phase 13 (RL) | `MarsBot` is the shipped opponent. §10.3 reports RL as incomplete. Nothing else changes |
 | 2nd | Phase 12 (procedural maps) | Classic board only. Training variety is reduced; no v1 requirement fails except FR-07 |
 | 3rd | Map artwork | Debug renderer ships. Every rule still works |
-| 4th | Phase 10 (Flutter) | **A scope reduction the supervisor must approve** — three clients is a stated project requirement (C-02) |
+| 4th | Phase 10 (Flutter) | **A scope reduction the supervisor and committee must approve** — C-04 states *"Three clients must all ship: Unity, Godot, Flutter + Flame. None may be dropped"* and is **Locked**, so this is an amendment to a locked constraint, not a discretionary cut. The case for it, with measurements, is [`../PLATFORM-SCOPE-PROPOSAL.md`](../PLATFORM-SCOPE-PROPOSAL.md) |
 | Never | Phases 1–7, 11 | These are the game |
 
 The order is not arbitrary: each of the first three is a component nothing else depends on, which is

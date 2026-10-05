@@ -38,7 +38,14 @@ work on a game that already runs.
 | Procedural generation | The classic map passing the same gate | The gate is what makes generation safe; without it a generator emits unplayable boards |
 | RL | Four working heuristic bots and a headless simulator | Without an opponent to beat and a simulator to run, there is nothing to train against |
 
-## 14.3 The five traps
+**When step 5's client work does start**, the UI/UX pack in [`../design/`](../design/) is the input: it
+fixes the design tokens, all 20 screens against the 13 endpoints and 9 action types, the board, dice and
+card specifications, the interaction grammar, and annotated wireframes for every screen in both desktop
+and mobile form. It was written so that screen design needs no re-derivation from chapters 5 to 7 —
+[`../design/00-index.md`](../design/00-index.md) is its entry point. It decides **no rule**: FR-67 holds,
+and wherever a reader expects a game number the pack names the server field that carries it.
+
+## 14.3 The six traps
 
 Each of these produces a system that appears to work. Each has one cheap guard.
 
@@ -49,9 +56,14 @@ Each of these produces a system that appears to work. Each has one cheap guard.
 | 3 | **Capability cached for performance.** Losing the last coastal territory then leaves Naval actions available | Capability is derived on every call, never stored. TC-CAP-04 and 05 (FR-41) |
 | 4 | **The comparison for tied dice inverted.** Every probability shifts; nothing crashes; every agent learns a different game | TC-CMB-03, against the exact fractions of §7.5 (DR-07) |
 | 5 | **Dictionary iteration order leaking into state.** Passes on one machine, fails on another, costs days to diagnose | Sort every collection before it reaches the RNG or a hash. TC-DET-04 on a second CI image (§8.3) |
+| 6 | **`diceSides` or `attackRange` read live from `shared/rules.json`** instead of from `matches.options`. A resumed match consumes **exactly one draw per roll as before**, so `rng_position` tracks the log perfectly — while every face and every outcome differs | **TC-PER-07 only.** It asserts the *source* of the value, not the value (D-29, D-30) |
 
-Traps 1 and 5 have no symptom during play. They are the two worth spending a CI job on before they can be
-introduced.
+Traps 1 and 5 have no symptom during play. Trap 6 is worse than either: it has no symptom during play
+**and the entire determinism suite stays green**, because TC-DET-01…04 check that the draw *count* and the
+random-source position match the log — and both do. Only a test that asks *where the number came from*
+catches it.
+
+These three are the ones worth spending a CI job on before they can be introduced.
 
 ## 14.4 Scope tripwires
 
@@ -101,7 +113,8 @@ A cut that is reported is a scope decision; a cut that is not reported is a gap 
 | [ ] | The six algorithm/method citations of §12.7 have been completed against the published record | §12.7 |
 | [ ] | The three retrieval gaps are still stated, not quietly dropped | §12.9 |
 | [ ] | Open questions O-01…O-06 are answered, or still recorded as open | §11.5 |
-| [ ] | Screenshots 12, 13 and 19 exist — the only visual evidence for the extensions and the three-client claim | §10.5 |
+| [ ] | **D-27, D-28 and the `territoryBonusMaxPerTurn` reading were confirmed before Phase 4** — each changes a test oracle | §11.5, Appendix G §G.16 |
+| [ ] | Screenshots **14, 15, 16 and 24** exist — the configurable dice face count, the two extensions, and the three-client claim | §10.5 |
 | [ ] | This checklist's §14.4 tripwires were not tripped | §14.4 |
 
 ---

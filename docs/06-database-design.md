@@ -118,13 +118,14 @@ single-player never requires registration (D-24).
 One row per match, holding everything that is true of the match as a whole: its frozen map, its options,
 its random-source state, its optimistic-concurrency version and its current position in the turn cycle.
 
-Three columns deserve specific comment:
+Four columns deserve specific comment:
 
 | Column | Why it exists |
 |---|---|
 | `effective_map` | The **frozen** normalised map including generated sea routes. This is what makes FR-10 true |
 | `rng_seed` + `rng_position` | Together they reconstruct the exact random stream. A deterministic game could be replayed from its log; a stochastic one cannot (§2.1) |
 | `trade_index` | The match-wide position in the card-escalation table. It advances once per trade and never resets (DR-13) |
+| `options` | Frozen for the same reason as `effective_map`. It now also holds `diceSides` and `attackRange` (FR-84, FR-85), which **must** be read from here rather than from `shared/rules.json`. A live read of `diceSides` would leave `rng_position` advancing identically while producing different faces — a replay that diverges without any determinism test failing. TC-PER-07 is the guard |
 
 ### SEATS
 
@@ -275,7 +276,7 @@ random-source position, the match is not reproducible, and that is detectable wi
 | `map_key` | `text` | No | — | Source map identifier, for display and audit only |
 | `effective_map` | `jsonb` | No | — | **Frozen** normalised map: territories, adjacency, continents, capability profiles, generated sea routes |
 | `mask` | `jsonb` | Yes | `null` | Submersion mask. Optional feature (D-05); null in v1 |
-| `options` | `jsonb` | No | — | Allocation mode, fortify mode, round cap, difficulty, turn timer, sea-route count |
+| `options` | `jsonb` | No | — | Allocation mode, fortify mode, round cap, difficulty, turn timer, sea-route count, **die-face count and attack range** (FR-84, FR-85) |
 | `rng_seed` | `bigint` | No | — | Seed for the match random source |
 | `rng_position` | `bigint` | No | `0` | Draws consumed so far. With `rng_seed`, reconstructs the exact stream (FR-58) |
 | `version` | `bigint` | No | `1` | Optimistic-concurrency token; incremented once per applied action (FR-61) |

@@ -32,7 +32,16 @@
     "defenderWinsTies": true,
     "occupyMinimumEqualsDiceRolled": true,
     "mustLeaveBehind": 1,
-    "_note": "SOURCED. defenderWinsTies is the single highest-risk flag in this file; TC-CMB-06 asserts the exact odds fractions against it."
+    "diceSides": 6,
+    "diceSidesMin": 2,
+    "diceSidesMax": 20,
+    "attackRange": 1,
+    "attackRangeMin": 1,
+    "attackRangeMax": 10,
+    "_note": "SOURCED. defenderWinsTies is the single highest-risk flag in this file; TC-CMB-02…06 assert the exact odds fractions against it.",
+    "_note_diceSides": "D-29, post-lock supervisory addition. Default 6 reproduces classic RISK exactly. Faces are drawn as NextInt(1, diceSides+1); the NUMBER of draws is unchanged, so rng_position semantics are identical at every value. defenderWinsTies is independent of this key (strict > on two drawn values).",
+    "_note_attackRange": "D-30, post-lock supervisory addition. Default 1 IS adjacency, so the default legal set equals the neighbour list. Above 1, a land attack is a BFS to depth attackRange over LAND EDGES ONLY — the same range function the Air Force uses (D-11). attackRangeMax 10 is the measured diameter of the classic land graph; larger values are meaningless. Raising this can never make a sea route traversable (C-08).",
+    "_note_frozen": "BOTH diceSides and attackRange are copied into matches.options at match creation and read from there, never live from this file (D-29/D-30 consequence 1). Editing them here must not affect a match in progress: diceSides would change drawn faces while consuming identical rng_position values, and attackRange would invalidate a logged action's legality. TC-PER-07 is the guard. NOTE that TC-DET-01..04 CANNOT detect a live diceSides read: the draw COUNT is unchanged, so rng_position tracks the log perfectly while every face differs. TC-ARC-03 covers the no-hidden-state side of the same property."
   },
 
   "cards": {

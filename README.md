@@ -12,10 +12,12 @@ This project tackles the common pitfalls of digital board game implementations (
 
 ## 🏗️ Structure
 
-- **`docs/`**: Comprehensive project documentation, including requirement definitions, system design, database design, and implementation plans.
+- **`docs/`**: Comprehensive project documentation, including requirement definitions, system design, database design, and implementation plans (chapters 00–14).
+- **`appendices/`**: Reference material — API contract (A), database schema (B), map specification (C), capability decision table (D), engine pseudocode (E), the 119 test cases (F), configuration tables (G), and additional diagrams and screenshots (H).
+- **`design/`**: The UI/UX design pack (00–08) — design system, screen inventory and flows, map, dice, card, interaction, accessibility and wireframes. Written so screen design can start without re-deriving anything from the documentation.
 - **`server/`**: The ASP.NET Core backend containing the C# rules engine, REST + SignalR APIs, and PostgreSQL persistence logic.
 - **`clients/`**: Subdirectories for the different thin clients (Unity, Godot, Flutter).
-- **`shared/`**: Shared contracts and OpenAPI specifications.
+- **`shared/`**: Shared contracts and OpenAPI specifications, plus `rules.json` (every tunable number) and `maps/world_classic.json`.
 - **`rl/`**: Python/PyTorch environment for reinforcement learning training and ONNX exports.
 - **`assets/`**: Shared static assets like 2D maps, icons, and audio.
 
@@ -25,10 +27,15 @@ This project tackles the common pitfalls of digital board game implementations (
 2. **Controlled Extensions:** Air Force and Naval Force capabilities are elegantly integrated into the classic map graph without requiring an entirely new combat system.
 3. **Procedural Map Generation:** Alongside a classic 42-territory board, the game can generate balanced procedural maps using clustering algorithms.
 4. **Multiple AI Personalities:** Different bot profiles ranging from Passive and Chaotic to a well-tuned heuristic bot.
+5. **Configurable Combat Parameters:** The dice face count (`diceSides`, default 6, settable 2–20) and the land attack range (`attackRange`, default 1 — which *is* adjacency, settable 1–10) are both match-level settings rather than hard-coded constants. At their defaults the game is exactly classic RISK; both are frozen into the match at creation so a configuration edit can never alter a match in progress.
 
 ## 🛠️ Setup & Development
 
 *(Detailed instructions for running the server, database, and specific clients will be added here as the implementation progresses. See `docs/08-implementation-plan.md` for the development roadmap.)*
+
+## 📋 Open Scope Decision
+
+[`PLATFORM-SCOPE-PROPOSAL.md`](PLATFORM-SCOPE-PROPOSAL.md) is a formal request to the FYP committee to amend locked constraint **C-04** (*"Three clients must all ship… None may be dropped"*) so that the Flutter mobile client is **designed in full but not implemented**. It carries the measured case: on a 1600px board canvas the closest two territory anchors sit 89.4px apart, so **all 42 territories fall below a 48px touch target at every phone width**, and the whole board is only simultaneously visible and touchable at viewports ≥ 859px. Awaiting decision.
 
 ## 📝 Git & Version Control
 

@@ -241,15 +241,20 @@ only in which targets are legal.
 ### Rules
 
 1. The attacker needs ≥ 2 armies in the origin, and **at least one more army than dice rolled**.
-2. The attacker rolls 1–3 dice; the defender rolls 1–2 (at most the armies present).
+2. The attacker rolls 1–3 dice; the defender rolls 1–2 (at most the armies present). Each die is drawn
+   uniformly from `1 … diceSides`, where `diceSides` defaults to 6 (FR-84, D-29).
 3. Both sets are sorted descending. Highest is compared with highest, second with second.
 4. **The defender wins ties.**
 5. Each comparison costs the loser one army.
 6. If the defender reaches 0, the attacker occupies (§7.4).
 
-### Exact probabilities
+A target is legal if it is within `attackRange` land edges of the origin, where `attackRange` defaults to
+**1 — which is exactly adjacency** (FR-85, D-30). Nothing in rules 1–6 depends on either parameter, which
+is the point: both generalise the *inputs* to combat, not its resolution.
 
-These are test oracles, not illustrations (TC-CMB-06):
+### Exact probabilities at the default face count
+
+These are test oracles, not illustrations (TC-CMB-02…06):
 
 | Attacker : defender dice | Attacker wins | Decimal |
 |---|---|---|
@@ -263,11 +268,49 @@ These are test oracles, not illustrations (TC-CMB-06):
 > percent. It is invisible during play, it passes every smoke test, and it silently corrupts every agent
 > trained against it. A statistical assertion against these fractions catches it in seconds.
 
+### The same table is not a constant — it is the `diceSides = 6` row of a family
+
+Every denominator above is `6^(a+d)`: 36, 216, 1296, 216, 7776. That is not a coincidence to be admired,
+it is the structure of the oracle. For any face count `N` the figures come from exhaustive enumeration over
+`N^(a+d)` equally likely outcomes — the "independent computation" oracle kind of §9.1, with no new
+machinery. The table above is what that enumeration returns at `N = 6`.
+
+For the 1 : 1 case there is a closed form, which is worth having because it can be checked by hand:
+
+> **P(attacker wins a single comparison) = (N − 1) / 2N**
+
+At `N = 6` this gives 5/12 = **15/36**, reproducing the first row. The derivation is short: of the `N²`
+equally likely pairs, `N` are ties and the remaining `N² − N` split evenly by symmetry, so the attacker
+takes `(N² − N)/2`. The identity has been checked against enumeration for every `N` from 2 to 20.
+
+Worked for the face count supervisory review actually asked about, `N = 7`:
+
+| Attacker : defender dice | `N = 6` | `N = 7` | Change for the attacker |
+|---|---|---|---|
+| 1 : 1 | 15 / 36 = 0.4167 | 21 / 49 = 0.4286 | +1.19 pp |
+| 2 : 1 | 125 / 216 = 0.5787 | 203 / 343 = 0.5918 | +1.31 pp |
+| 3 : 1 | 855 / 1296 = 0.6597 | 1617 / 2401 = 0.6735 | +1.38 pp |
+| 1 : 2 | 55 / 216 = 0.2546 | 91 / 343 = 0.2653 | +1.07 pp |
+| 3 : 2 — takes both | 2890 / 7776 = 0.3717 | 6559 / 16807 = 0.3903 | +1.86 pp |
+
+**Every figure moves the same way, and the reason is rule 4.** The defender's advantage *is* the tie, and a
+tie has probability `1/N` — so raising the face count makes the defender's edge rarer without changing any
+rule. Seven faces is a quiet buff to the attacker; as `N` grows, 1 : 1 tends to a coin flip from below.
+This is the kind of consequence a configurable parameter is expected to have, and recording it here is what
+distinguishes a designed parameter from an exposed constant.
+
 ### Dice are engine-side
 
 Every die comes from the match's injected seeded random source and is returned in a `DiceRolled` event
 (FR-29). Clients animate the faces they are given; they never generate one (FR-69). This is what makes
 replay exact and cheating uninteresting (§5.9).
+
+Changing `diceSides` changes the *values* drawn but **not the number of draws**, so `rng_position`
+advances identically at every face count. That is precisely why the value is frozen into
+`matches.options` at creation (D-29): a match replayed under a different face count would consume the
+same positions and produce different faces, so determinism would appear to hold while the replay
+diverged. The dice renderer is given a face count and a list of values, and has no opinion about either
+(`design/04-dice-ui-ux.md`).
 
 ## 7.6 Cards
 
@@ -446,6 +489,53 @@ Range 5 is a **real constraint** on this board, not a formality: it leaves 22.8%
 reach. It is also a large increase over adjacency — 9.6% to 77.2%, an eightfold expansion of the target
 set — which is precisely why AIR-1 exists.
 
+**This table is now read twice.** Since D-30 made the ordinary land-attack distance configurable
+(`combat.attackRange`, FR-85), the same column gives the reach of a *land* attack at each setting. Row 1 is
+the default and the classic game; row 5 is what the Air Force gets for free; row 10 is the whole landmass.
+A host who sets `attackRange: 3` is choosing the 39.3% row for every attack in the match. The measurement
+did not have to be repeated because it was never specific to the Air Force — it is a property of the land
+graph.
+
+### What distinguishes the Air Force once attack range is configurable
+
+At the default `attackRange: 1` the Air Force is exactly what §7.8 describes: the only way to strike beyond
+adjacency. Raise the setting and that stops being true, so the subsystem needs its boundary restated
+rather than left to be inferred:
+
+| `attackRange` | Relationship between the two actions |
+|---|---|
+| 1 (default) | Air Force is a strict superset of the land attack. Reach is its entire point. |
+| 2 … 4 | Both are range-limited searches over land edges. Air Force still reaches strictly further. |
+| 5 | **Reach becomes identical.** The two actions differ only in their preconditions. |
+| 6 … 10 | A land attack reaches *further* than the Air Force. Air Force reach is now a restriction. |
+
+What still separates them at **every** setting:
+
+1. **The per-turn limiter.** AIR-1 permits one Air Force attack per turn (`airForce.attacksPerTurn: 1`);
+   land attacks are unlimited within the phase. This is the distinction that does not decay.
+2. **The capability requirement.** An Air Force attack requires the seat to hold AirForce capability by
+   CAP-2 — earned by owning a qualifying territory or holding a qualifying card (§7.7). A land attack
+   requires nothing but ownership and armies.
+
+**Reach is therefore not the Air Force's defining feature; it was only ever its most visible one.** The
+subsystem survives `attackRange: 10` with both of its real constraints intact, and the paragraph above on
+AIR-1 should be read in that light: the limiter was introduced to stop the land attack becoming dead code,
+and at high ranges it is the limiter alone that still earns the Air Force its place.
+
+Two implementation consequences follow, and both reduce work rather than adding it:
+
+- **One range function, not two.** `WithinRange(landGraph, origin, R)` is a breadth-first search to depth
+  `R`; `AirForceRules` calls it with `airForce.maxRange` and `CombatRules` calls it with
+  `combat.attackRange`. There is no second traversal to keep in step, which is the structural form of
+  DR-19's single combat resolution.
+- **The sea-route exclusion is inherited, not re-enforced.** The function is handed the land graph and has
+  no access to `map.seaRoutes` (C-08). No value of `attackRange` can make a sea route traversable, so
+  DR-18 and TC-AIR-03 hold without a guard, at every setting.
+
+A ranged land attack occupies through the ordinary path — move in ≥ dice rolled, leave ≥ 1 behind (§7.4,
+D-18) — so the isolated-pocket behaviour described below is reachable by land attack too once
+`attackRange ≥ 2`. It remains intended behaviour for the same reason.
+
 ### Range 5 is not worth the same everywhere
 
 Average reach at range 5 is 31.7 of the other 41 territories, but the spread is wide:
@@ -484,8 +574,12 @@ An Air Force attack is offered when **all** of the following hold:
 3. The seat has not used its Air Force attack this turn.
 4. The origin is owned, holds ≥ 2 armies, and more than the dice to be rolled.
 5. The target is not owned by the attacker.
-6. The land-graph shortest-path distance from origin to target is between 1 and 5 inclusive, computed
-   **without sea routes in the edge set**.
+6. The land-graph shortest-path distance from origin to target is between 1 and `airForce.maxRange`
+   (default 5) inclusive, computed **without sea routes in the edge set**.
+
+The land-attack legality summary is the same list with items 2 and 3 removed and `combat.attackRange`
+(default 1) in place of `airForce.maxRange` in item 6 — which is the clearest statement of how little
+separates the two actions, and of why they share one implementation.
 
 ## 7.9 Naval Force
 

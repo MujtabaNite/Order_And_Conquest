@@ -79,12 +79,19 @@ the deliberate decision of NFR-16.
 
 | FR | UC | Design | Module | Test |
 |---|---|---|---|---|
-| FR-26 | UC-10 | §7.5 | `Engine/Rules/CombatRules` | TC-CMB-01 |
+| FR-26 | UC-10 | §7.5 | `Engine/Rules/CombatRules` | TC-CMB-01, TC-CMB-09 |
 | FR-27 | UC-10 | §7.5 | `Engine/Rules/CombatRules` | TC-CMB-02, 03, 06 |
 | FR-28 | UC-13 | §7.4 | `Engine/Rules/CombatRules` | TC-CMB-07 |
 | FR-29 | UC-10 | §5.4, §7.5 | `Engine/Random/SeededRandom`, `Engine/Rules/CombatRules` | TC-DET-01, TC-API-06 |
 | FR-30 | UC-13 | §7.6 | `Engine/State/SeatState` | TC-CRD-02 |
 | FR-31 | UC-10, UC-11, UC-12 | §7.5 | `Engine/Rules/CombatRules` | TC-CMB-08, TC-AIR-06, TC-NAV-04, TC-ARC-05 |
+
+### Configurable combat parameters
+
+| FR | UC | Design | Module | Test |
+|---|---|---|---|---|
+| FR-84 | UC-10 | §7.5 (D-29) | `Engine/Rules/CombatRules`, `Engine/Random/SeededRandom`, `shared/rules.json` | TC-CMB-10, TC-PER-07, TC-ARC-03 |
+| FR-85 | UC-10 | §7.5, §7.8 (D-30) | `Engine/Rules/CombatRules`, `Engine/Rules/AirForceRules` (shared range function) | TC-CMB-09, TC-PER-07, TC-AIR-02 |
 
 ### Cards
 
@@ -192,13 +199,18 @@ the deliberate decision of NFR-16.
 
 | | Count |
 |---|---|
-| Functional requirements | **83** |
-| With at least one test case | **82** |
-| With a design section | **83** |
-| With an implementation module | **83** |
-| With a motivating use case | **60** |
+| Functional requirements | **85** |
+| With at least one test case | **84** |
+| With a design section | **85** |
+| With an implementation module | **85** |
+| With a motivating use case | **62** |
 | With no use case (invariants, consequences, infrastructure) | **23** — see §13.7 |
 | Verified by inspection only | **1** (FR-70, optional) |
+
+FR-84 and FR-85 were added after this matrix was first written (D-29, D-30) and are traced in their own
+subsection of §13.2 rather than renumbered into the Combat group. Both attach to **UC-10 Attack Enemy
+Territory**, which is why the use-case count rises by two: they change what that use case's main flow may
+offer, not what an actor does.
 
 Every rules module named in §8.3 is exercised by at least one test family, which is the second half of
 NFR-15:
@@ -282,7 +294,7 @@ The check is mechanical: delete every OPT row from §13.2 and confirm no mandato
 | FR-81 PPO training and export | `rl/training/`, `rl/models/`, `rl/export/` | No |
 | FR-83 checkpoint fortify-mode metadata | A guard inside the RL export path | No |
 
-**Result: NFR-24 holds.** Removing all five leaves 78 requirements, all of the engine, the API, the
+**Result: NFR-24 holds.** Removing all five leaves 80 requirements, all of the engine, the API, the
 database, four heuristic agents and three clients — a complete, playable game. The five removed tests
 (TC-RL-01…04 and FR-70's inspection) are exactly the ones §9.1 counts separately as "gated on the optional
 RL component".
@@ -315,9 +327,9 @@ traced to the module that enforces them and the invariant that checks them, not 
 
 | DR | Enforced in | Checked by |
 |---|---|---|
-| DR-01 connected board | `MapValidator` (V-03) | TC-MAP-02 |
-| DR-02 symmetric adjacency | `MapValidator` (V-04) | TC-MAP-02 |
-| DR-03 continents partition exactly | `MapValidator` (V-05) | TC-MAP-03 |
+| DR-01 connected board | `MapValidator` (V-07) | TC-MAP-02 |
+| DR-02 symmetric adjacency | `MapValidator` (V-01) | TC-MAP-02 |
+| DR-03 continents partition exactly | `MapValidator` (V-06) | TC-MAP-03 |
 | DR-04 ≥ 1 army, exactly one owner | `Engine/State/TerritoryState` | TC-ARC-05 invariant set |
 | DR-05 armies conserved | `CombatRules`, `FortifyRules` | TC-ARC-05 invariant set |
 | DR-06 attacker leaves ≥ 1 behind | `CombatRules`, `FortifyRules` | TC-CMB-07, TC-FRT-01 |
