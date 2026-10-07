@@ -4,7 +4,8 @@ Tokens. Everything in this file is a named constant that appears in [08 wirefram
 and nowhere is a raw hex or pixel value used in a later document without a token name beside it.
 
 Token names are given in `kebab-case` so they transliterate directly into CSS custom properties,
-Unity `ScriptableObject` fields, Godot theme overrides and Flutter `ThemeExtension` members without
+Unity `ScriptableObject` fields, Godot theme overrides and Flutter `ThemeExtension` members without.
+
 renaming.
 
 ---
