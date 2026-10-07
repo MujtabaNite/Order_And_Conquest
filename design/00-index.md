@@ -25,7 +25,7 @@ requirement in `../docs/03-requirements.md`, or recorded as a design decision wi
 
 Two filenames are **binding**: `03-map-ui-ux.md` and `04-dice-ui-ux.md` are already cited from
 `../docs/00-decisions-and-assumptions.md`, `../docs/07-game-design.md` and
-`../appendices/E-pseudocode.md`. They may not be renamed without updating those citations.
+`../appendices/E-pseudocode.md`. They may not be renamed without updating those citations....     
 
 ---
 
