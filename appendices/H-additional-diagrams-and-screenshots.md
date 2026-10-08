@@ -332,6 +332,11 @@ All 33 diagrams in the package, for the report's list of figures.
 > non-zero node **and edge** count. A diagram that parses but renders empty would otherwise pass
 > unnoticed.
 
+> **All of them are browsable and zoomable in [`../diagrams.html`](../diagrams.html)** — a
+> self-contained page with the library inlined, so it needs no network. Click any diagram to open it,
+> scroll to zoom, drag to pan. A Markdown renderer strips JavaScript, so this is the only place a
+> click-to-zoom lightbox can live.
+
 ---
 
 **Appendix index:** [A](A-api-contract.md) · [B](B-database-schema.sql) · [C](C-map-specification.md) ·

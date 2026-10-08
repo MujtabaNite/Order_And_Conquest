@@ -43,13 +43,17 @@ erDiagram
         uuid id PK
         text username UK
         text password_hash
+        text display_name
+        text colour "nullable, preferred default"
         timestamptz created_at
+        timestamptz last_login_at "nullable"
     }
 
     MATCHES {
         uuid id PK
         text status
         text map_key
+        int map_format_ver
         jsonb effective_map
         jsonb mask "nullable, optional feature"
         jsonb options
@@ -76,6 +80,8 @@ erDiagram
         text colour
         text status
         int eliminated_by "nullable"
+        int eliminated_round "nullable"
+        int final_rank "nullable"
     }
 
     TERRITORY_STATE {
@@ -98,6 +104,8 @@ erDiagram
         uuid match_id PK, FK
         bigint seq PK
         int seat_index
+        int round
+        text phase
         jsonb action
         jsonb events
         bigint version_after

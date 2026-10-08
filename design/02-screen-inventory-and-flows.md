@@ -119,16 +119,16 @@ by its number there, so the table is checkable against the contract line by line
 | S-04 | Match setup | **3** `GET /maps`, **4** `GET /maps/{key}` | **5** `POST /maps/generate` | — | full screen, stepped |
 | S-05 | Sea-route configuration | **4** (`seaRoutes` min/max/default) | — contributes to **6**'s body | — | step of S-04 |
 | S-06 | Lobby | **8** `GET /state` | **6** `POST /matches`, **7** `POST /join` | `StateChanged` | full screen |
-| S-07 | Claim | **8**, **9** | **10** `POST /actions` | `StateChanged`, `TurnChanged`, `HandOverDevice` | board + bottom sheet |
+| S-07 | Claim | **8**, **9** | **10** `POST /actions` | `StateChanged`, `TurnChanged`, `HandOverDevice` | board + right drawer |
 | S-08 | Main board | **8**, **9** | **10** (`EndPhase`), **11** `ai-step` | all six | the scene itself |
-| S-09 | Draft | **8**, **9** | **10** | `StateChanged` | bottom sheet, half |
-| S-10 | Cards | **8**, **9** | **10** | `StateChanged` | bottom sheet, full |
-| S-11 | Attack | **8**, **9** | **10** | `StateChanged`, **`DiceRolled`** | bottom sheet, half |
-| S-12 | Air Force targeting | **8**, **9** | **10** | `StateChanged`, **`DiceRolled`** | bottom sheet, full |
-| S-13 | Naval Force | **8**, **9** | **10** | `StateChanged`, **`DiceRolled`** | bottom sheet, half |
+| S-09 | Draft | **8**, **9** | **10** | `StateChanged` | right drawer |
+| S-10 | Cards | **8**, **9** | **10** | `StateChanged` | right drawer, wide |
+| S-11 | Attack | **8**, **9** | **10** | `StateChanged`, **`DiceRolled`** | right drawer |
+| S-12 | Air Force targeting | **8**, **9** | **10** | `StateChanged`, **`DiceRolled`** | right drawer, wide |
+| S-13 | Naval Force | **8**, **9** | **10** | `StateChanged`, **`DiceRolled`** | right drawer |
 | S-14 | Occupy | **9** | **10** | `StateChanged` | **blocking modal** |
-| S-15 | Fortify | **8**, **9** | **10** | `StateChanged` | bottom sheet, half |
-| S-16 | Capability panel | **8** | — **read-only** | `StateChanged` | bottom sheet, full |
+| S-15 | Fortify | **8**, **9** | **10** | `StateChanged` | right drawer |
+| S-16 | Capability panel | **8** | — **read-only** | `StateChanged` | right drawer, wide |
 | S-17 | Hand-over | **nothing until dismissed** | — | `HandOverDevice` | **blocking full screen** |
 | S-18 | Game over | **8** | — | `GameOver` | full screen |
 | S-19 | Replay viewer | **12** `GET /replay` | — | — | full screen |

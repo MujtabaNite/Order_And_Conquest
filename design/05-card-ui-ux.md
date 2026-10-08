@@ -340,42 +340,44 @@ On desktop the hand is the persistent right panel from [03 §3.10](03-map-ui-ux.
 
 ---
 
-## 5.9 Mobile layout
+## 5.9 Touch layout — landscape (UX-05)
 
-The hand is a `BottomSheet` at **full** height, reached from the peek bar's `[Cards n]` tab.
+The hand is the **one panel that is not a right drawer.** A hand is a horizontal sequence of at most
+five cards, so it gets a **bottom overlay strip** whose long axis matches the content's. Like every
+touch panel it floats above the board and never resizes it (UX-14).
 
 ```
-┌─────────────────────────┐
-│ ═══ grab ═══            │
-│ YOUR HAND      3 cards  │
-│ next set worth 12       │
-│  4 6 8 10 ▸12◂ 15 20 25 │
-├─────────────────────────┤
-│  ┌─────┐ ┌─────┐        │
-│  │  ✈  │ │  🛡  │        │
-│  │N.AFR│ │ALASKA│       │
-│  └─────┘ └─────┘        │
-│  ┌─────┐                │
-│  │  ✦  │   ← tap to     │
-│  │WILD │     select     │
-│  └─────┘                │
-├─────────────────────────┤
-│  1 valid set            │
-│  [      TRADE      ]    │
-├─────────────────────────┤
-│  OPPONENTS              │
-│  ◆ Mars   ▨▨      2     │
-│  ▲ Chaos  ▨▨▨▨    4  ⚠  │
-└─────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ R12 · DRAFT · Seat 0  ●             TACTICAL  ⚙ [Caps][Cards]│ 40
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│                    B O A R D   ·  unchanged                  │
+│                                                              │
+├──────────────────────────────────────────────────────────────┤
+│ YOUR HAND  3        next set 12       1 valid set            │ 44
+│ ┌────┐ ┌────┐ ┌────┐                        ◆ Mars  ▨▨   2   │
+│ │ ✈  │ │ 🛡  │ │ ✦  │   ← tap to select     ▲ Chaos ▨▨▨▨ 4 ⚠ │ 124
+│ │N.AF│ │ALSK│ │WILD│                                         │
+│ └────┘ └────┘ └────┘        [      TRADE      ]              │
+└──────────────────────────────────────────────────────────────┘
+                     strip 168 px, overlay
 ```
 
 | Rule | Value |
 |---|---|
-| Card size | 112 × 156, two per row at 360 px — a 5-card hand is three rows, scrolling inside the sheet |
-| Tap target | the whole card, well over `control-h-lg` |
+| Card size | **88 × 124** on touch (112 × 156 desktop). Five cards plus gaps is ≈ 480 px, so the maximum hand fits one row at **every** supported width, 640 px up |
+| Strip height | **168 px** — 44 header + 124 cards. On a 390 px-tall phone that is 43 % of the viewport, which is why it is transient and dismissible, not persistent |
+| Never wraps | One row always. A wrapping hand would reintroduce the vertical-space problem the strip exists to avoid |
+| Tap target | the whole card, 88 × 124 — far over `control-h-lg` |
 | Selection | tap to select, tap again to deselect; three selected enables Trade |
-| **One-handed reach** | the Trade button is pinned to the sheet's bottom, never inside the scrolling card area |
-| Peek badge | the `[Cards n]` tab turns `warning` when `mustTrade` is true, so the forced trade is visible without opening the sheet |
+| Trade button | right of the strip, at the thumb's natural landscape resting position — never under the cards, where a mis-tap would select one |
+| Opponents | right of the strip, face-down backs plus counts (UX-12), so the trade decision and the opponents' hand sizes are on screen together |
+| Dismiss | tap the board, swipe down, or the `[Cards]` tab again |
+| Tab badge | the `[Cards n]` tab turns `warning` when `mustTrade` is true, so a forced trade is visible without opening anything |
+
+> **Forced trades keep the strip open.** When `mustTrade` is true the strip cannot be dismissed, the
+> board behind it is inert, and no other action is legal (§5.7). It is the same rule as the desktop
+> takeover, expressed in the touch layout.
 
 ---
 

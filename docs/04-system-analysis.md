@@ -236,7 +236,7 @@ UC-08 to UC-13, UC-16 and UC-19 — carry the most detail in their business-rule
 | **Post-condition** | The caller holds that seat, and every participant sees the updated seat list. |
 | **Basic path** | 1. Player enters a room code. 2. System resolves the match. 3. System assigns the first open `RemoteHuman` seat to the caller (FR-13). 4. System broadcasts `StateChanged` so every lobby updates (FR-63). 5. S-06 shows the player in the seat list. |
 | **Alternative path** | 2a. Unknown room code → `404`. 3a. The seat is already held → `409`. 2b. The match is not accepting joins → `403`. 3b. The caller already holds a seat in this match → the existing seat is returned rather than a second one being assigned. |
-| **Business rules** | A seat is claimed, never created — seat count is fixed at creation (UC-04). `Neutral` and `Ai` seats are never joinable. The route exists from the start so that **Phase 6 online play is a configuration change rather than a schema change**; in Phases 1–5 the only seat kinds in use are `LocalHuman`, `Ai` and `Neutral`. |
+| **Business rules** | A seat is claimed, never created — seat count is fixed at creation (UC-04). `Neutral` and `Ai` seats are never joinable. **Room is one of the three shipped modes, so this route is delivered, not merely prepared**; Phases 1–5 exercise only `LocalHuman`, `Ai` and `Neutral`, and Phase 6 completes the `RemoteHuman` path. The seat model means that completion is a configuration and authorisation job rather than a schema or rules change. |
 | **Non-functional** | NFR-23 — one API process and one database; joining needs no orchestration. |
 
 ---

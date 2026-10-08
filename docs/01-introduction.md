@@ -113,7 +113,7 @@ objective depends on it.
 | Extensions | Air Force (range 5, land adjacency only) · Naval Force (sea routes) · per-territory capability profiles · 6 card types · seat-chosen sea-route count |
 | Architecture | One pure rules engine · ASP.NET Core REST + SignalR · PostgreSQL six-table persistence · per-seat state redaction · optimistic concurrency |
 | Clients | Unity · Godot · Flutter + Flame — all thin, all driven by `GET /legal` |
-| Modes | Single player vs AI · pass-and-play · AI-only spectate · online-ready seat model |
+| Modes | **Three, and only three: Pass & Play · Player vs AI · Room (remote players and AI together)** — each a seat composition over one rule set, never an engine concept (§5.1) |
 | AI | PassiveBot · ChaoticBot · AggressiveBot · MarsBot (evaluation function) |
 | Maps | Authored classic board · procedural generation (Poisson-disc → Lloyd → Delaunay → clustering) · shared validation gate |
 | Optional | Reinforcement-learning agent (PPO, self-play, ONNX export) |
@@ -160,7 +160,7 @@ Stated plainly, because an honest limitations section is worth more than an opti
 | Reinforcement learning may not succeed | Risk has ≈ 3.3 × 10²⁴ opening positions. Published attempts have largely failed; the one clear success used a network as an evaluator inside a search, not as a direct policy | O8 is optional and gated. Stages 1–2 ship the complete game |
 | Territory artwork is not part of the systems work | 42 hand-traced polygons are an art task | Adjacency ships first; the engine, AI and tests run against a debug board view (O-01) |
 | No performance claims are made before measurement | §10.4 is a **template**. It contains no numbers | NFR targets in §3.3 are stated as targets, and §9.6 records results only once measured |
-| Online play is prepared, not delivered | Seat model, room codes, version field and turn-timer field all exist; enforcement does not | Phase 6+; the seat model means going online changes configuration, not rules |
+| **Room mode requires the networked path to be delivered, not merely prepared** | Room is one of the three shipped modes, so `RemoteHuman` seats, room codes, join authorisation and the realtime push must all work — not just exist as fields | Phase 6 becomes **mandatory**, not optional. The seat model still means going online changes configuration rather than rules, which is why this is a phase to complete rather than a design to revisit |
 | Single-instance deployment only | One API process, one database | NFR-23. Turn-based play has one writer at a time, so this is sufficient, not a compromise |
 
 ## 1.8 Development Methodology

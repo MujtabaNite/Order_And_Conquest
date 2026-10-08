@@ -63,7 +63,7 @@ desktop, 72 px tall, pinned bottom-centre over the ocean margin
 | Commands present | Only those with at least one matching entry in `legal` (§6.3) |
 | `End phase` | **Always rightmost**, in every phase that offers `EndPhase`. Never moves, never re-labels except `End turn` in the `EndTurn` phase |
 | Absent `End phase` | Only in `Claim` and `Occupy`. In `Occupy` the bar is replaced entirely by S-14's modal |
-| Mobile | The bar becomes the bottom sheet's peek row; `End phase` stays rightmost |
+| Mobile | The bar becomes a **bottom-right cluster** over the board — vertical space is the scarce axis in landscape, so a full-width bar is not spent. `End phase` stays rightmost |
 | Width | Commands never reflow position as they appear and disappear — each has a fixed slot, and an unavailable command leaves its slot empty rather than letting the others slide |
 
 That last row is a small thing with a real payoff: a player reaching for *Fortify* must not hit
@@ -277,7 +277,7 @@ client feature; free text is not.
 
 | | |
 |---|---|
-| Surface | A collapsed chip row in the seat list, desktop; a tab in the bottom sheet, mobile |
+| Surface | A collapsed chip row in the seat list, desktop; a tab in the right drawer, touch |
 | Content | A fixed list of ~12 phrases plus ~8 emoji, shipped as data |
 | Input | **Selection only.** No text field exists anywhere in the client |
 | Rate limit | One per seat per turn, client-side |
