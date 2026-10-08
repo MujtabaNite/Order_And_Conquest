@@ -30,11 +30,6 @@ Two filenames are **binding**: `03-map-ui-ux.md` and `04-dice-ui-ux.md` are alre
 `../docs/00-decisions-and-assumptions.md`, `../docs/07-game-design.md` and
 `../appendices/E-pseudocode.md`. They may not be renamed without updating those citations....     
 
-> **All 34 diagrams in the package are browsable and zoomable in
-> [`../diagrams.html`](../diagrams.html)** — a self-contained page needing no network. Markdown
-> renderers strip JavaScript, so a click-to-zoom lightbox is not possible inside a `.md` file; the
-> viewer is where that lives.
-
 ---
 
 ## 0.2 What this pack is allowed to decide
