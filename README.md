@@ -14,7 +14,8 @@ This project tackles the common pitfalls of digital board game implementations (
 
 - **`docs/`**: Comprehensive project documentation, including requirement definitions, system design, database design, and implementation plans (chapters 00–14).
 - **`appendices/`**: Reference material — API contract (A), database schema (B), map specification (C), capability decision table (D), engine pseudocode (E), the 119 test cases (F), configuration tables (G), and additional diagrams and screenshots (H).
-- **`design/`**: The UI/UX design pack (00–08) — design system, screen inventory and flows, map, dice, card, interaction, accessibility and wireframes. Written so screen design can start without re-deriving anything from the documentation.
+- **`design/`**: The UI/UX design pack (00–09) — design system, screen inventory and flows, map, dice, card, interaction, accessibility, wireframes, and the **art direction sampled from reference frames** in `design/References/`. Written so screen design can start without re-deriving anything from the documentation.
+- **`diagrams.html`**: **Zoomable viewer for all 34 diagrams** in the package. Self-contained — open it in any browser, no network needed. Click a diagram to open it, scroll to zoom, drag to pan.
 - **`server/`**: The ASP.NET Core backend containing the C# rules engine, REST + SignalR APIs, and PostgreSQL persistence logic.
 - **`clients/`**: Subdirectories for the different thin clients (Unity, Godot, Flutter).
 - **`shared/`**: Shared contracts and OpenAPI specifications, plus `rules.json` (every tunable number) and `maps/world_classic.json`.
@@ -35,7 +36,7 @@ This project tackles the common pitfalls of digital board game implementations (
 
 ## 📋 Open Scope Decision
 
-[`PLATFORM-SCOPE-PROPOSAL.md`](PLATFORM-SCOPE-PROPOSAL.md) is a formal request to the FYP committee to amend locked constraint **C-04** (*"Three clients must all ship… None may be dropped"*) so that the Flutter mobile client is **designed in full but not implemented**. It carries the measured case: on a 1600px board canvas the closest two territory anchors sit 89.4px apart, so **all 42 territories fall below a 48px touch target at every phone width**, and the whole board is only simultaneously visible and touchable at viewports ≥ 859px. Awaiting decision.
+[`PLATFORM-SCOPE-PROPOSAL.md`](PLATFORM-SCOPE-PROPOSAL.md) is a formal request to the FYP committee to amend locked constraint **C-04** (*"Three clients must all ship… None may be dropped"*) so that the Flutter mobile client is **designed in full but not implemented**. The case is cost, not capability: the mobile client would work — in landscape at the tactical zoom scale of 0.537 an iPhone 15 still shows 98% of the board width — but it is a second interaction model, restructuring 12 of the 20 screens, and Room mode has since made Phase 6 mandatory. Awaiting decision.
 
 ## 📝 Git & Version Control
 

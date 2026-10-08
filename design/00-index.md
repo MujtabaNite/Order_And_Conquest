@@ -21,11 +21,19 @@ requirement in `../docs/03-requirements.md`, or recorded as a design decision wi
 | 05 | [`05-card-ui-ux.md`](05-card-ui-ux.md) | The cards. Six symbols, 44-card deck, set highlighting, escalation, forced trade, redaction | |
 | 06 | [`06-interaction-and-affordances.md`](06-interaction-and-affordances.md) | The FR-66 rule made concrete; input grammar; every error, empty and loading state; the 409 conflict; preset messages | |
 | 07 | [`07-responsive-and-accessibility.md`](07-responsive-and-accessibility.md) | Breakpoints, touch targets, colour-blind safety, reduced motion, text scaling | |
-| 08 | [`08-wireframes.md`](08-wireframes.md) | Every screen, desktop and mobile, as annotated ASCII wireframes with the data each region binds to | |
+| 08 | [`08-wireframes.md`](08-wireframes.md) | Every screen, desktop and mobile-landscape, as annotated ASCII wireframes with the data each region binds to | |
+| **09** | [**`09-art-direction.md`**](09-art-direction.md) | **Palette, surface construction, HUD anatomy and badge system — every value sampled from the reference frames in [`References/`](References/).** Supersedes the *values* in 01 §1.2–§1.4 | |
+| **10** | [**`10-figma-prompt-desktop.md`**](10-figma-prompt-desktop.md) | **Copy-paste build prompt for Figma AI — desktop.** Exact tokens, components, 20 screens, hard constraints, self-check | |
+| **11** | [**`11-figma-prompt-mobile-landscape.md`**](11-figma-prompt-mobile-landscape.md) | **Copy-paste build prompt for Figma AI — mobile, landscape only.** 21 frames at two sizes, overlay-drawer model, two zoom states | |
 
 Two filenames are **binding**: `03-map-ui-ux.md` and `04-dice-ui-ux.md` are already cited from
 `../docs/00-decisions-and-assumptions.md`, `../docs/07-game-design.md` and
 `../appendices/E-pseudocode.md`. They may not be renamed without updating those citations.
+
+> **All 34 diagrams in the package are browsable and zoomable in
+> [`../diagrams.html`](../diagrams.html)** — a self-contained page needing no network. Markdown
+> renderers strip JavaScript, so a click-to-zoom lightbox is not possible inside a `.md` file; the
+> viewer is where that lives.
 
 ---
 
@@ -52,12 +60,28 @@ server's legal-action response.* This is a UI rule, it is the backbone of the wh
 
 ## 0.3 How a screen designer should read it
 
-1. **[01](01-design-system.md)** once, for the tokens.
+1. **[01](01-design-system.md)** once, for the tokens — then **[09](09-art-direction.md)** for the values they hold, which are sampled from reference.
 2. **[02](02-screen-inventory-and-flows.md)** to find the screen you are designing and what it owes.
-3. **[08](08-wireframes.md)** for its desktop and mobile frame.
+3. **[08](08-wireframes.md)** for its desktop and mobile-landscape frame.
 4. **[03](03-map-ui-ux.md)**, **[04](04-dice-ui-ux.md)** or **[05](05-card-ui-ux.md)** if it contains the board, the dice or the hand.
 5. **[06](06-interaction-and-affordances.md)** before declaring it finished — it lists the states that are always forgotten.
 6. **[07](07-responsive-and-accessibility.md)** as the acceptance checklist.
+
+> **01 owns the token names and the structural rules; 09 owns the values.** Where they disagree on a
+> colour, 09 wins, because its numbers came out of a reference frame and 01's were chosen before the
+> reference existed.
+
+### The three match modes
+
+The product ships exactly three, and they are a **setup-screen affordance rather than an engine
+concept** — each resolves to a seat composition over one unchanged rule set
+([09 §9.6](09-art-direction.md)):
+
+| Mode | Seats | Hand-over | Room code |
+|---|---|---|---|
+| **Pass & Play** | 2–6 `LocalHuman` (+ `Neutral` at 2 seats, D-07) | **yes**, S-17 | no |
+| **Player vs AI** | 1 `LocalHuman` + 1–5 `Ai` | no | no |
+| **Room** | 1 `LocalHuman` + `RemoteHuman` + `Ai`, mixed | only if 2+ local | **yes**, S-06 |
 
 ---
 
@@ -73,8 +97,8 @@ locked rule. Every one of them is a decision a screen designer would otherwise h
 | **UX-01** | **One territory is exactly one closed polygon. Every drawn landmass is a territory; every territory is a drawn landmass.** No island that is not a territory appears on the map at any zoom level | A tappable-looking landmass that is not a legal target is a lie the interface tells. It also makes hit-testing a single point-in-polygon test, and makes the artwork verifiable by counting shapes | [03 §3.3](03-map-ui-ux.md) |
 | **UX-02** | Seven-entry ownership palette: six seats plus `Neutral`. Seats 0–2 keep the colours already published in the API examples | Those three appear in `../appendices/A-api-contract.md` §A.6/§A.7 as literal values; changing them would invalidate a published contract example | [01 §1.2](01-design-system.md) |
 | **UX-03** | **Ownership is encoded twice — seat colour *and* a per-seat pattern.** Colour alone is never the only carrier of owner identity | A seven-way categorical palette cannot be made distinguishable for every form of colour vision. Measured: deuteranopia collapses `seat-5` Teal against `seat-neutral` Slate (ΔE 3.8) and `seat-1` Cobalt against `seat-4` Violet (ΔE 5.4); tritanopia collapses `seat-2` Jade against `seat-5` Teal (ΔE 5.4). Luminance does not rescue it either — `seat-4` and `seat-0` are 1.4 apart. The second channel is the fix, not a nicety | [07 §7.4](07-responsive-and-accessibility.md) |
-| **UX-04** | **Continent colour never fills a territory.** It appears only on the continent grouping band, the bonus chip and the continent outline | Territory fill is reserved for seat identity. Europe's `#5b8fb9` and seat 1's `#2980b9` are both blue — if both could appear as a fill, a glance could not tell ownership from geography | [01 §1.3](01-design-system.md), [03 §3.4](03-map-ui-ux.md) |
-| **UX-05** | Minimum supported viewport is **360 × 640 CSS px**. The board remains playable, not merely visible, at that size | It is the practical floor for shipping phones. It is a design target here and deliberately *not* promoted to an NFR, because no NFR in `../docs/03-requirements.md` fixes a viewport and this pack does not get to add one | [07 §7.1](07-responsive-and-accessibility.md) |
+| **UX-04** | **Continent colour never fills a territory.** It appears only on the continent grouping band, the bonus chip and the continent outline | Territory fill is reserved for seat identity. Europe's `#5b8fb9` and seat 2's fill `#2F6E92` are both mid-blue — if both could appear as a fill, a glance could not tell ownership from geography | [01 §1.3](01-design-system.md), [03 §3.4](03-map-ui-ux.md) |
+| **UX-05** | **Mobile is landscape-only.** The app locks to landscape on phones and tablets; portrait renders a rotate prompt and nothing else. Minimum supported viewport **640 × 360 CSS px** | The board is 16 : 9. Measured at the tactical zoom where every territory carries a 48 px target, a landscape phone sees **75–100 %** of the board width against **42–50 %** in portrait — landscape roughly doubles it. Supporting portrait would mean a second layout for the worse half of the comparison. The floor is a design target and deliberately *not* promoted to an NFR, because no NFR in `../docs/03-requirements.md` fixes a viewport and this pack does not get to add one | [03 §3.11](03-map-ui-ux.md), [07 §7.1](07-responsive-and-accessibility.md) |
 | **UX-06** | **Dice presentation mode is a property of the match, not of the die.** `faces ≤ 6` → pips on every die; `faces > 6` → numerals on every die | Mixing pips for 1–6 with a numeral for 7 would make the seventh face look like a special event. It is not special; it is one face of a d7 | [04 §4.3](04-dice-ui-ux.md) |
 | **UX-07** | **Range display is one component, shared by land attack and Air Force.** It renders "every reachable target, with its distance", parameterised by the bound it is handed | Post-D-30 both callers ask the same question of the same land graph. Two components would drift, and S-12 would eventually disagree with the board about what range 3 means | [03 §3.8](03-map-ui-ux.md) |
 | **UX-08** | The ten `crossesWater` edges are drawn **dashed**, and a dashed edge is labelled in the legend as *"land border across water"* — never as a sea route | `crossesWater` is a render hint with **no mechanical meaning** (`../shared/maps/world_classic.json` `_comment`). It is a subset of `neighbours`. A player who reads it as naval-only would mis-plan every turn | [03 §3.6](03-map-ui-ux.md) |
@@ -82,6 +106,8 @@ locked rule. Every one of them is a decision a screen designer would otherwise h
 | **UX-10** | Army counts render as a **badge pinned to the `label` anchor**, not as free text inside the polygon | `label` is documented as *"an approximate anchor for the debug board view and for the army-count badge"*. Pinning the badge there means the artwork can change in Phase 12 without moving any number | [03 §3.5](03-map-ui-ux.md) |
 | **UX-11** | **No client holds a random source at all.** The dice tumble is a deterministic sweep of `1 … diceSides`, not a local random draw | FR-69 says dice animate *from the event*. Making the decorative tumble deterministic too means there is no RNG in a client for a later refactor to accidentally promote into a game outcome — FR-69 becomes verifiable by the absence of an import rather than by reading an animation | [04 §4.5](04-dice-ui-ux.md) |
 | **UX-12** | A hidden card is drawn **face-down with a visible count**, never as a blank gap or a guessed back-count | Card *counts* are public in RISK and are sent for every seat; card *identities* are redacted server-side to `null`. Drawing the count from the redacted field keeps the interface truthful in both directions at once | [05 §5.6](05-card-ui-ux.md) |
+| **UX-13** | **The board is a zoomable canvas with two named states — `Overview` (fit) and `Tactical` (scale ≥ 0.537)** — and selecting an origin **auto-frames to Tactical centred on it** | 0.537 is the measured scale at which the densest anchor pair (89.4 px) reaches a 48 px target. Naming the two states makes the touch guarantee checkable (*"is it compliant?"* becomes *"is it Tactical?"*), and auto-framing means the player gets compliance without having to know the model exists | [03 §3.11](03-map-ui-ux.md) |
+| **UX-14** | **A panel never resizes the board.** On touch, panels are right-edge overlay `Drawer`s floating above a full-bleed board; only desktop has persistent side panels | Resizing the board changes its scale, which changes whether targets are compliant — a panel must not be able to break the touch guarantee. Measured: a persistent 280 px rail drops an iPad mini from 57.2 px to 41.6 px and puts 16 of 42 territories under the minimum. Bottom sheets are doubly wrong in landscape, where board height is the scarce axis at 320–390 px | [03 §3.11](03-map-ui-ux.md), [07 §7.2](07-responsive-and-accessibility.md) |
 
 ---
 

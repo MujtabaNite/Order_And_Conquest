@@ -5,7 +5,7 @@
 
 The board is the only screen a player looks at for the whole match. Everything else is a panel that
 opens over it. This document fixes what is drawn, what is **not** drawn, how ownership and reach are
-read at a glance, and how all of that survives a 360 px phone.
+read at a glance, and how all of that survives a 640 × 360 landscape phone.
 
 ---
 
@@ -36,33 +36,47 @@ Clients hold one `Viewport { scale, panX, panY }` and derive everything from it.
 position is `anchor × scale + pan`. The margins exist so the right-hand side can carry a desktop
 panel over the ocean without covering `eastern_australia` at x = 1420.
 
-### Measured anchor density — the fact that decides the mobile design
+### Measured anchor density — the fact that sets the tactical zoom
 
 | Statistic | Value |
 |---|---|
 | Closest two anchors | **89.4 px** — `irkutsk ↔ mongolia`, and `mongolia ↔ china` |
 | Next closest | 92.2 `northwest_territory ↔ alberta`, 94.9 `east_africa ↔ congo`, 94.9 `northern_europe ↔ southern_europe`, 94.9 `yakutsk ↔ irkutsk` |
 | Median anchor separation | 497.3 px |
+| Median **nearest-neighbour** gap | 110.0 px |
 | **Loosest** nearest-neighbour gap | **145.6 px** (`japan`) |
 
 The last row is the important one. *Every* territory has a neighbour within 145.6 px, so there is no
 loosely-packed region to fall back on — the board is uniformly dense, and a touch target that fails
 in Asia fails everywhere.
 
-| Viewport width | Scale | Closest anchor gap becomes |
+A 48 px touch target (`control-h-lg`) needs a 48 px gap between anchors, which needs
+**scale ≥ 0.537**. That single number is the **tactical scale**, and it is the one geometric constant
+the mobile design is built on (§3.11).
+
+### It is a zoom threshold, not a device verdict
+
+The board is a **zoomable, pannable canvas** — not an image fitted to the viewport. So the scale above
+does not say which devices are viable; it says **where the zoom control snaps**. Measured at scale
+0.537 in landscape:
+
+| Device | Board visible at tactical zoom | Pinch from overview |
 |---|---|---|
-| 360 px | 0.225 | **20.1 px** |
-| 414 px | 0.259 | 23.1 px |
-| 768 px | 0.480 | 42.9 px |
-| 1024 px | 0.640 | 57.2 px |
-| 1600 px | 1.000 | 89.4 px |
+| Small Android 640 × 360 | 75 % × 66 % | 1.51 × |
+| iPhone 15 844 × 390 | **98 % × 72 %** | 1.38 × |
+| iPhone 15 Pro Max 932 × 430 | **100 % × 81 %** | 1.24 × |
+| iPad mini 1024 × 768 and up | **100 % × 100 %** | none — already past tactical |
 
-A 48 px touch target (`control-h-lg`) needs a 48 px gap, which needs **scale ≥ 0.537**, which needs
-a **viewport ≥ 859 px**. For a 44 px target the threshold is 787 px.
+So a landscape phone can hold nearly the entire board on screen *while every territory is tappable*,
+and a tablet needs no zoom at all. What the density measurement actually constrains is the **zoom
+model**, and §3.11 specifies it: two named states, overview and tactical, with auto-framing on
+selection so the player rarely pinches deliberately.
 
-**So the whole board cannot offer compliant touch targets on any phone, at any fit-to-width zoom.**
-That is not a layout problem to be solved by nudging anchors; it is arithmetic. §3.11 handles it
-with two selection modes rather than by pretending otherwise.
+> **Correction of record.** An earlier draft of this document concluded from the same figures that
+> "the whole board cannot offer compliant touch targets on any phone", and made a territory list the
+> primary selection path on mobile. That reasoning assumed a board fitted to the viewport. The board
+> zooms, as every mobile game in this genre does, so the conclusion does not follow and has been
+> withdrawn. The figures were right; the inference was not.
 
 ---
 
@@ -378,78 +392,123 @@ geometry `TerritoryShape` draws.
 
 ---
 
-## 3.11 Mobile layout (< 768 px, down to 360 px)
+## 3.11 Mobile layout — **landscape only** (UX-05, UX-13, UX-14)
 
-The board is full-bleed; every panel is a `BottomSheet`.
+The app **locks to landscape** on phones and tablets. Portrait renders one rotate prompt and nothing
+else — no board, no panels, no partial layout to maintain.
 
-```
-┌─────────────────────────┐   ┌─────────────────────────┐
-│ R12 · ATTACK · Seat 0 ⚙ │   │ R12 · ATTACK · Seat 0 ⚙ │  44 px
-├─────────────────────────┤   ├─────────────────────────┤
-│                         │   │                         │
-│                         │   │        B O A R D        │
-│       B O A R D         │   │       (compressed)      │
-│      full-bleed         │   │                         │
-│      pan + zoom         │   ├─────────────────────────┤
-│                         │   │ ═══ grab ═══            │
-│                         │   │ KAMCHATKA → ALASKA      │
-│                         │   │ 5 armies  vs  1         │
-│                         │   │ Dice  ① ② ③   odds 66 % │
-│                         │   │ [ ATTACK ]              │
-├─────────────────────────┤   │ ▸ Other targets (4)     │
-│ ═══ peek ═══  ATTACK    │   └─────────────────────────┘
-│ [Cards 3] [Seats] [▸]   │        sheet at HALF
-└─────────────────────────┘
-      sheet at PEEK
-```
+### Why landscape, measured
 
-| Sheet state | Height | Holds |
-|---|---|---|
-| **Peek** | 96 px | Phase, the primary action, three tabs. Board fully visible |
-| **Half** | 50 % | Active action panel — attack, draft, fortify, occupy |
-| **Full** | 92 % | Card hand, seat list, capability panel, settings, event log |
+The board is a **zoomable canvas**, so the question is not "does the whole board fit" but "at the zoom
+where every territory is tappable, how much of the board can I see?" The tactical scale is **0.537**,
+where the densest pair (89.4 px apart) reaches a 48 px target. At that scale:
 
-### Selection below 859 px — the two modes
+| Device | Landscape | Board visible at tactical zoom | Portrait, same device |
+|---|---|---|---|
+| Small Android 640 × 360 | 1193 × 596 canvas px | **75 % × 66 %** | 42 % × 100 % |
+| iPhone SE 667 × 375 | 1243 × 624 | **78 % × 69 %** | 44 % × 100 % |
+| iPhone 13 mini 812 × 375 | 1513 × 624 | **95 % × 69 %** | 44 % × 100 % |
+| iPhone 15 844 × 390 | 1573 × 652 | **98 % × 72 %** | 45 % × 100 % |
+| Pixel 8 892 × 412 | 1662 × 693 | **100 % × 77 %** | 48 % × 100 % |
+| iPhone 15 Pro Max 932 × 430 | 1737 × 727 | **100 % × 81 %** | 50 % × 100 % |
+| iPad mini 1024 × 768 | 1908 × 1357 | **100 % × 100 %** | — |
+| iPad Pro 11 1194 × 834 | 2225 × 1480 | **100 % × 100 %** | — |
 
-§3.2 established that compliant touch targets need a viewport ≥ 859 px. Below that the board offers
-**two** ways to select, and both are always available:
+Landscape roughly **doubles** the visible board width at a playable zoom. That is the whole argument:
+the board is 16 : 9, so a 16 : 9-ish viewport wastes nothing, and a portrait viewport throws away half
+the width exactly where the territories are.
 
-**1 · Direct touch, with an anchor hit radius.** Hit-testing is point-in-polygon (point-in-circle in
-debug mode) **unioned with a 22 px radius around the anchor**, so a near-miss still lands. When two
-candidates are both within the radius — which at fit-to-width zoom is routine in Asia, North America
-and Europe — no guess is made: a **disambiguation popover** opens listing the candidates by name,
-each row `control-h-lg` tall. Two taps, never a wrong one.
+The pinch required to get from overview to tactical is small — **1.38 ×** on an iPhone 15, 1.51 × on
+the smallest Android, and **none at all on any tablet**, which is already past tactical at fit.
 
-**2 · The territory list.** The bottom sheet's active panel always carries the same choice as a
-list — *"Other targets (4)"* in the sketch above — grouped by continent, each row showing name,
-owner chip, army count and, when `attackRange > 1`, distance. Every row is `control-h-lg`.
+### Two named zoom states
 
-The list is not a fallback for an awkward board; it is the **primary** path on a phone, and the
-board is primarily a display. That inversion is deliberate: a player who prefers tapping the map can
-pinch in and do so, and a player who does not never has to fight a 20 px gap.
-
-### Zoom
+| State | Scale | Purpose | Reached by |
+|---|---|---|---|
+| **Overview** | fit-to-contain — 0.36–0.43 phones, 0.64+ tablets | Read the board: ownership, fronts, continent control | two-finger double-tap; the default on entering a turn |
+| **Tactical** | **≥ 0.537** | Act: every territory carries a ≥ 48 px target | double-tap a territory; pinch; the `[⊕]` control, which **snaps** to exactly 0.537 |
 
 | | |
 |---|---|
-| Fit-to-width | the default; the whole 16 : 9 board visible |
-| Min scale | fit-to-width (never smaller — there is nothing outside the board to see) |
-| Max scale | 3.5 × fit |
-| **Tactical threshold** | **0.537 of design scale.** At or above it, direct touch meets 48 px and the disambiguation popover stops appearing. A small chip reads *"tap-to-select"* when crossed |
-| Gestures | one-finger pan, two-finger pinch, double-tap to zoom to the tapped territory, two-finger double-tap to fit |
-| Auto-frame | on `TurnChanged` to my seat, and on entering Occupy, the board eases to frame the relevant territories — skippable by any touch |
+| Min scale | overview (fit). Never smaller — there is nothing outside the board to see |
+| Max scale | 3.5 × overview |
+| Gestures | one-finger pan · two-finger pinch · double-tap a territory to go tactical centred on it · two-finger double-tap to return to overview |
+| **Auto-frame** | selecting an origin eases to **tactical, centred on that origin**. Entering Occupy frames origin + target. On `TurnChanged` to my seat, overview. Any touch cancels the ease |
+| State chip | a small chip reads **OVERVIEW** or **TACTICAL** so the player always knows which mode governs tapping |
+
+Auto-framing on selection is what makes the two states invisible in practice: the player taps a
+territory in overview, the board moves itself to tactical, and every subsequent tap is compliant
+without a deliberate pinch. This is the interaction the genre has already settled on.
+
+### Panels are right-edge drawers, never bottom sheets (UX-14)
+
+A landscape phone gives the board **320–390 px of height**. A half-height bottom sheet would leave
+160–195 px — less than the board's aspect can use, and it would push the board off its own centre.
+So every panel enters from the **right edge** as an overlay `Drawer` that **floats above the board**.
+
+> **The board is never resized by a panel.** Resizing would change the scale, which would change
+> whether targets are compliant — a panel must not be able to break the touch guarantee. It overlays;
+> the board's scale and centre are untouched.
+
+| | |
+|---|---|
+| Drawer width | `min(320 px, 45 vw)` — 288 px on a 640 px screen, 320 px above 712 px |
+| Dismiss | tap the board, swipe right, or the `✕`. Never a back-gesture (§06.4) |
+| Scrim | none on the board side — the board stays readable, because the player is choosing a target on it |
+| Exception | S-14 Occupy and S-17 Hand-over are **centred blocking modals** on every platform |
+
+```
+closed — board owns the viewport
+┌──────────────────────────────────────────────────────────────┐
+│ R12 · ATTACK · Seat 0  ●            TACTICAL   ⚙ [Caps][Cards]│ 40
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│                  B O A R D   ·  full-bleed                   │
+│                  zoom + pan · never resized                  │
+│                                                       [⊕]    │
+│                                        ┌─ ⚔ Attack ─┬─ End ▸─┐│
+└────────────────────────────────────────┴────────────┴────────┘
+
+open — drawer floats over the board
+┌───────────────────────────────────┬──────────────────────────┐
+│ R12 · ATTACK · Seat 0  ●          │ KAMCHATKA → ALASKA    ✕ │ 40
+├───────────────────────────────────┤──────────────────────────┤
+│                                   │ 5 armies   vs   1        │
+│         B O A R D                 │ Dice   ① ② ③             │
+│         unchanged scale,          │ win chance      66 %     │
+│         unchanged centre          │ ███████████░░░░░         │
+│                                   │ [       ATTACK       ]   │
+│                                   │ ▸ Other targets (4)      │
+└───────────────────────────────────┴──────────────────────────┘
+                                           drawer ≤ 320 px
+```
+
+The action bar becomes a **bottom-right cluster** rather than a full-width bar: vertical space is the
+scarce axis in landscape, and a 72 px bar across the bottom costs 20 % of the board on a phone.
+
+### Selection — direct touch is the primary path
+
+| Zoom state | Primary | Supporting |
+|---|---|---|
+| **Tactical** | **Direct touch.** Every territory ≥ 48 px. No popover, no list needed | — |
+| **Overview** | Direct touch with a 22 px anchor hit radius | When two candidates fall inside the radius, a **disambiguation popover** lists them by name, rows at `control-h-lg`. No guess is ever made |
+| Either | — | The active drawer always carries the same choice as a **territory list**, grouped by continent, each row `control-h-lg` |
+
+The list is a **convenience, not a crutch**: it serves accessibility (§7.7), one-handed play and
+players who prefer it, but the board is fully operable by touch alone once tactical. Earlier drafts of
+this document made the list primary; the measured zoom figures above do not support that, and it has
+been corrected.
 
 ### Declutter, in order
 
-Applied in this order as scale falls, so the information that survives longest is the information
-the player needs:
+Applied as scale falls, so the information that survives longest is the information the player needs:
 
 | Scale | Territory names | Distance badges | Army badges | Edge lines |
 |---|---|---|---|---|
 | ≥ 0.80 | all | all | all | all |
-| 0.54 – 0.80 | on tap / selection only | all | all | all |
-| 0.34 – 0.54 | hidden | selected origin's only | all | all |
-| < 0.34 | hidden | selected origin's only | **all — never dropped** | across-water + sea routes only |
+| 0.54 – 0.80 — **tactical band** | on tap / selection | all | all | all |
+| 0.36 – 0.54 — **overview band** | hidden | selected origin's only | all | all |
+| < 0.36 | not reachable — overview is the floor | | | |
 
 **The army badge is never decluttered.** It is the board's only quantitative content, and a board
 without it answers no question a player has. Names are recoverable by tapping; a missing army count
@@ -567,7 +626,7 @@ review checklist.
 | DA-09 | Army badges sit at `label` and survive every declutter level | UX-10, §3.11 |
 | DA-10 | At `attackRange = 1` no ring, arc or distance badge is rendered | §3.8 |
 | DA-11 | 40 distance badges render simultaneously without overlap at ≥ 0.80 scale | §3.8 |
-| DA-12 | At < 859 px viewport, the disambiguation popover appears for every ambiguous tap, and the territory list offers every choice the board does | §3.11 |
+| DA-12 | In **Overview**, an ambiguous tap opens the disambiguation popover and never guesses. In **Tactical**, every territory is ≥ 48 px and the popover does not appear. Selecting an origin auto-frames to Tactical | §3.11, UX-13 |
 | DA-13 | The six landlocked territories never show a ship badge or a sea-route endpoint | §3.14 |
 | DA-14 | The board is blank behind the hand-over screen before any incoming state is requested | §3.12, TC-UI-03 |
 

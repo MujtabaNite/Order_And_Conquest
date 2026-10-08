@@ -114,20 +114,36 @@ made while writing documentation.
 
 ### From the design pack, computed against the tokens and anchors
 
-5. **The whole board cannot offer compliant touch targets on a phone, and that is arithmetic.** The two
-   closest territory anchors are **89.4 px** apart on the 1600 px canvas, and every territory has a
-   neighbour within 145.6 px, so the board is uniformly dense. A 48 px target therefore needs a viewport of
-   **≥ 859 px** — which no phone provides at fit-to-width. The design answers it with a territory list as
-   the primary selection path rather than pretending a 20 px target works (`design/07` §7.2).
+5. **The tactical zoom scale is 0.537, and landscape roughly doubles what a phone can see at it.** The
+   two closest territory anchors are **89.4 px** apart on the 1600 px canvas, and every territory has a
+   neighbour within 145.6 px, so the board is uniformly dense. A 48 px touch target therefore needs
+   **scale ≥ 0.537**. Because the board zooms, that is a threshold the player crosses rather than a
+   device test: at 0.537 an iPhone 15 in landscape still shows **98 % of the board width**, a tablet
+   shows all of it, and the pinch required is under 1.4 ×. The same phone in **portrait** shows only
+   **45 %** — which is why mobile is landscape-only (`design/07` §7.2).
 
-6. **The seat palette fails for three specific colour-vision pairs, and greyscale does not rescue it.**
-   Simulated at full severity, deuteranopia collapses Teal against Slate (ΔE 3.8) and Cobalt against Violet
-   (ΔE 5.4), and tritanopia collapses Jade against Teal (ΔE 5.4), while normal vision separates every pair
-   comfortably (closest ΔE 28.7). Relative luminance does not separate them either — Violet and Crimson are
-   1.4 apart. This is why ownership is encoded **twice**, by colour *and* pattern (`design/07` §7.4).
+   An earlier revision of this section read *"the whole board cannot offer compliant touch targets on a
+   phone, and that is arithmetic"* and made a territory list the primary mobile path. That assumed a
+   board fitted to the viewport. The board zooms, as the genre does, so the inference was wrong and has
+   been withdrawn; the measurements behind it were not.
 
-   The same pass found two tokens genuinely failing contrast — `warning` at 2.44 : 1 behind body text, and
-   `border-strong` at 1.92 : 1 behind a boundary that must be identifiable — and both were corrected.
+6. **The commercial reference's own territory palette fails under deuteranopia, and we measured it.** The
+   art direction is sampled pixel-by-pixel from 168 reference frames (`design/09`). Running the sampled
+   seat fills through a colour-vision simulation at full severity, **red `#FF0103` and gold `#96843C` are
+   ΔE 5.1 apart under deuteranopia** — the same colour to a deuteranopic player. Normal vision separates
+   every pair comfortably (worst ΔE 19.8).
+
+   We keep the fills, because fidelity to the art direction is the point, and repair the defect the way
+   **UX-03** already required: ownership is encoded **twice**, by colour *and* by a per-seat pattern, with
+   the bright accent badge and the territory name as further channels (`design/09` §9.7).
+
+   A second measurement shaped the type: white on the ocean `#1897C8` is only **3.33 : 1**, while white on
+   land `#383E48` is **10.76 : 1**. Board type crosses both constantly as the player pans, so it cannot be
+   tuned for either — which is why every white label on the board carries a dark outline. The reference does
+   this, and the contrast figures say why it has to.
+
+Reproducing a shipped commercial art direction **and** repairing a measurable accessibility flaw in it is
+a stronger contribution than either alone, and it cost one sampling script.
 
 Findings 3 and 6 are the ones worth generalising from: each cost one script, each contradicted a plausible
 assumption already written down in prose, and neither would have emerged from any amount of careful
@@ -157,7 +173,7 @@ Stating these is more useful than a summary that does not.
 | **Coastal status is an unvalidated design judgement** | 36 of 42 territories are coastal by authored decision, not by geography. It determines Naval reach across the whole board and has never been playtested (O-02) |
 | **The capability mapping is unplaytested** | Appendix D's 42 rows are a first pass. Seven air-capable territories and five Air Force cards are plausible numbers, not measured ones (O-03, O-04) |
 | **The frozen-parameter trap is the most dangerous defect the package can contain** | If `diceSides` or `attackRange` were ever read live from `shared/rules.json` instead of from `matches.options`, a resumed match would consume **exactly one random draw per roll as before** — so `rng_position` would track the log perfectly, **every determinism test would pass**, and every face and every outcome would differ. TC-DET-01…04 *cannot* detect it. **TC-PER-07 is the only guard**, and it is the only test in the suite that asserts where a value came from rather than what it equals. It must not be "simplified" into an equality check (Appendix G §G.15) |
-| **The mobile board cannot meet touch-target guidance, by arithmetic** | The two closest territory anchors are 89.4 px apart on a 1600 px canvas, so a 48 px target needs a viewport ≥ 859 px — more than any phone at fit-to-width. This is not a layout problem to be solved later; it is a property of putting 42 territories on one screen. The design pack answers it with a compliant territory-list path, and that path is **not** optional polish — on a phone it is the primary way to play (`design/07` §7.2) |
+| **The mobile client is a second interaction model, not a second layout** | On touch the board must stay full-bleed and zoomable, because a panel that resizes it changes the scale and so changes whether targets are compliant — a persistent 280 px rail takes an iPad mini from 57.2 px to 41.6 px and puts 16 of 42 territories under the minimum. Twelve of the twenty screens change structure. Mobile is therefore buildable but is its own body of work, which is the subject of [`../PLATFORM-SCOPE-PROPOSAL.md`](../PLATFORM-SCOPE-PROPOSAL.md) (`design/07` §7.2) |
 
 ### What would make this specification wrong
 

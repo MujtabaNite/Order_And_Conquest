@@ -29,7 +29,7 @@ renaming.
 |---|---|---|
 | `radius-sm` | 4 px | Chips, badges, dice pips container |
 | `radius-md` | 8 px | Buttons, cards, dice token |
-| `radius-lg` | 16 px | Panels, bottom sheets |
+| `radius-lg` | 16 px | Panels, drawers |
 | `radius-full` | 9999 px | Army badge, seat dot, avatar |
 
 | Token | Value | Used for |
@@ -40,23 +40,41 @@ renaming.
 
 ---
 
-## 1.2 Ownership palette (UX-02)
+## 1.2 Ownership palette (UX-02, UX-03)
 
 Seven entries: six playable seats and `Neutral`. The seat index *is* the palette index — seat 3
 always gets `seat-3`, in every client, in every match, so a screenshot is readable without a key.
 
-| Token | Hex | Name | Provenance |
-|---|---|---|---|
-| `seat-0` | `#c0392b` | Crimson | **Published** in `../appendices/A-api-contract.md` §A.6 and §A.7 |
-| `seat-1` | `#2980b9` | Cobalt | **Published**, same source |
-| `seat-2` | `#27ae60` | Jade | **Published**, same source |
-| `seat-3` | `#f0b429` | Amber | New here (UX-02) |
-| `seat-4` | `#8e44ad` | Violet | New here (UX-02) |
-| `seat-5` | `#16a085` | Teal | New here (UX-02) |
-| `seat-neutral` | `#7f8c8d` | Slate | New here (UX-02) |
+**Values are sampled from the reference frames — see [09 §9.3](09-art-direction.md) for each one's
+source file and pixel region.** Three of the six are measured; three are derived to extend the same
+language, and each is marked.
 
-Seats 0–2 are not free choices. They appear as literal strings in the API contract's worked
-examples, so a different value would make a published example wrong.
+### Two tiers per seat: a muted fill and a bright accent
+
+This is the reference's key structural decision and it is not a shading relationship — the two values
+are chosen independently.
+
+| Token | Fill | Accent | Name | Source |
+|---|---|---|---|---|
+| `seat-0` | `#FF0103` | `#FF2E30` | Red | **sampled** |
+| `seat-1` | `#96843C` | `#FBBA2D` | Gold | **sampled** |
+| `seat-2` | `#2F6E92` | `#45A4EE` | Blue | **sampled** |
+| `seat-3` | `#6D9423` | `#8FD13A` | Green | derived |
+| `seat-4` | `#8A3FA8` | `#B97BE8` | Violet | derived |
+| `seat-5` | `#B4532A` | `#F2863A` | Orange | derived |
+| `seat-neutral` | `#4E5765` | `#8A94A2` | Slate | derived |
+
+| Tier | Used for |
+|---|---|
+| **Fill** | the territory body, the continent grouping band, the seat chip background |
+| **Accent** | the army badge disc, the seat ring, the territory-pulse on change, any UI element naming the seat |
+
+> **Never interchange them.** A territory in accent red would glare; a badge in fill gold would
+> disappear against the landmass. §9.9 check DA-78 asserts it.
+
+The accented `seat-0` differs from the sampled pure red `#FF0103` only by a lift for white-numeral
+legibility on the badge; the fill keeps the exact sampled value.
+
 
 ### The pattern channel (UX-03)
 
@@ -112,38 +130,61 @@ never hard-codes them.
 2. the continent **bonus chip** in the draft breakdown (S-09) and the capability panel (S-16);
 3. the continent **grouping band** in any territory list.
 
-The reason is a collision, not a preference: Europe's `#5b8fb9` and `seat-1`'s `#2980b9` are both
-mid-blue. If both could appear as a territory fill, a glance could not separate *who owns this* from
-*where this is*. Keeping fill exclusively for ownership resolves it permanently, and also means the
-six continent colours never need to be checked against the seven seat colours again.
+The reason is a collision, not a preference: Europe's `#5b8fb9` and `seat-2`'s fill `#2F6E92` are
+both mid-blue. If both could appear as a territory fill, a glance could not separate *who owns this*
+from *where this is*. Keeping fill exclusively for ownership resolves it permanently, and also means
+the six continent colours never need to be checked against the seven seat colours again.
 
-Note too that the map's continent colours are **desaturated** while the seat palette is
+Note too that the map's continent colours are **desaturated** while the seat accents are
 **saturated**. That is the secondary cue: anything vivid is a player, anything muted is geography.
 
 ---
 
-## 1.4 Semantic colour
+## 1.4 Semantic colour — one committed theme
 
-| Token | Light | Dark | Meaning |
+**There is no light mode.** The reference is a single committed visual world: a bright cyan board
+inside deep teal-navy chrome. A "light theme" for a cyan ocean and near-black territory outlines
+would be a second art direction, not a palette swap, and no reference frame shows one. S-20 therefore
+carries no theme control.
+
+Values marked **sampled** come from a reference frame — see [09 §9.2](09-art-direction.md).
+
+| Token | Value | Meaning | Source |
 |---|---|---|---|
-| `bg-canvas` | `#f5f3ef` | `#14161a` | Screen background behind everything |
-| `bg-surface` | `#ffffff` | `#1d2026` | Panels, cards, sheets |
-| `bg-surface-raised` | `#ffffff` | `#262a32` | Dialogues, menus, tooltips |
-| `bg-ocean` | `#cfe0ea` | `#101c24` | The sea on the board (**not** a continent colour) |
-| `text-primary` | `#1a1d21` | `#f2f4f7` | Body, numbers |
-| `text-secondary` | `#5b6470` | `#a2acb9` | Labels, captions, help text |
-| `text-disabled` | `#9aa3ad` | `#5e6671` | Inert control text |
-| `border-subtle` | `#e2ded7` | `#2e333c` | Panel dividers |
-| `border-strong` | `#7d8896` | `#444c57` | Input outline, **territory border** |
-| `accent` | `#1d6fa5` | `#4aa3d8` | The single interactive accent, non-seat |
-| `legal` | `#2f9e44` | `#51cf66` | **A legal target** (see below) |
-| `legal-dim` | `#2f9e4433` | `#51cf6633` | Legal fill wash, 20 % |
-| `legal-fill` | `#1f7a32` | `#51cf66` | A **filled** legal control. Light: white text on it, 5.40 : 1. Dark: `text-primary`-dark text on it, 9.03 : 1 |
-| `danger` | `#c92a2a` | `#ff6b6b` | Destructive, elimination, loss |
-| `warning` | `#9c5700` | `#ffc34d` | Forced trade, round cap approaching |
-| `warning-wash` | `#fff4e0` | `#3a2c10` | Warning banner background, with `warning` text on it |
-| `info` | `#1c7ed6` | `#74c0fc` | Neutral notice |
-| `focus-ring` | `#1d6fa5` | `#7cc4f0` | 2 px outline + 2 px offset, always visible |
+| `bg-chrome-deep` | `#081A24` | Behind everything; menu gradient base | **sampled** |
+| `bg-chrome` | `#0A2433` | Screen background, menus | **sampled** |
+| `bg-panel` | `#123A50` | Panels, drawers, cards | **sampled** |
+| `bg-panel-raised` | `#20658A` | Dialogues, popovers, the active row | **sampled** |
+| `bg-ocean` | **`#1897C8`** | The sea on the board | **sampled** |
+| `bg-ocean-hi` | `#53B7E5` | Wave highlight | **sampled** |
+| `bg-land` | **`#383E48`** | Unowned landmass | **sampled** |
+| `board-outline` | **`#120400`** | 3 px territory outline (§09.4) | **sampled** |
+| `banner-panel` | `#D3E9F3` | Top instruction banner | **sampled** |
+| `text-primary` | `#FFFFFF` | Board type, panel headings |  |
+| `text-on-panel` | `#E8F2F7` | Body text on a panel |  |
+| `text-secondary` | `#9FC0D2` | Labels, captions |  |
+| `text-disabled` | `#5E7788` | Inert control text |  |
+| `text-ink` | `#000000` | Text on `banner-panel` only | **sampled** |
+| `accent-gold` | **`#FBBA2D`** | The non-seat interactive accent; currency, emphasis | **sampled** |
+| `legal` | `#5FD13A` | **A legal target** (see below) |  |
+| `legal-dim` | `#5FD13A33` | Legal fill wash, 20 % |  |
+| `danger` | `#FF5457` | Destructive, elimination, loss |  |
+| `warning` | `#FBBA2D` | Forced trade, round cap approaching |  |
+| `info` | `#45A4EE` | Neutral notice |  |
+| `focus-ring` | `#8FD13A` | 2 px outline + 2 px offset, always visible |  |
+
+### The dark text outline is load-bearing, and that is measured
+
+White on `bg-ocean` is only **3.33 : 1** — enough for large UI, **not** for body text. White on
+`bg-land` is 10.76 : 1. Board type crosses both surfaces constantly as the player pans, so it cannot
+be tuned for either.
+
+> **Every piece of white type on the board carries a dark outline.** That is not a stylistic echo of
+> the reference; it is the only way one type colour stays legible over a 3.33 : 1 surface and a
+> 10.76 : 1 surface at the same time. Army numerals, territory names and phase labels all take it.
+
+The light `banner-panel` exists for the same reason in reverse: when a long instruction must be read
+rather than glanced at, it gets a plate, and black on `#D3E9F3` measures **16.72 : 1**.
 
 ### `legal` is a reserved colour
 
@@ -153,21 +194,22 @@ whole FR-66 affordance vocabulary ([06 §6.1](06-interaction-and-affordances.md)
 also meant "nice", a player would learn to distrust it, and the one visual promise the interface
 makes would be broken.
 
-`accent` exists so that ordinary interactive chrome — a link, a stepper, a tab — has somewhere to
-live that is neither a seat colour nor the legal colour.
+`accent-gold` exists so that ordinary interactive chrome — a link, a stepper, a tab — has somewhere
+to live that is neither a seat colour nor the legal colour.
 
 ### Measured contrast
 
-Every pair above was computed, not estimated ([07 §7.3](07-responsive-and-accessibility.md) carries
-the full table). Three results shaped the values in this file:
+| Foreground | on `bg-chrome` | on `bg-panel` | on `bg-land` | on `bg-ocean` |
+|---|---|---|---|---|
+| `text-primary` white | **15.99** | **12.02** | **10.76** | 3.33 — outline required |
+| `text-on-panel` | 14.07 | 10.58 | 9.47 | — |
+| `text-secondary` | 8.34 | 6.27 | 5.61 | — |
+| `accent-gold` | 9.26 | 6.96 | 6.24 | — |
+| `legal` | 8.12 | 6.11 | 5.47 | — |
+| `danger` | 5.07 | 3.81 — large/UI | 3.41 — large/UI | — |
+| `text-ink` on `banner-panel` | — | — | — | **16.72** |
 
-| Token | Was | Now | Why |
-|---|---|---|---|
-| `warning` light | `#e8930c` | **`#9c5700`** | 2.44 : 1 on white — failed AA for body text, and the forced-trade banner (§05.7) is body text. Now 5.56 : 1 |
-| `border-strong` light | `#b4bcc5` | **`#7d8896`** | 1.92 : 1 — below the 3 : 1 non-text minimum for a boundary that must be identifiable. Now 3.60 : 1 |
-| `legal` light | `#2f9e44` | unchanged | 3.45 : 1 — passes as an **outline or wash**, fails as text and fails under white text. So `legal` outlines and washes; a **filled** legal control uses `legal-fill` `#1f7a32` instead, which carries white text at 5.40 : 1 |
-
-`text-disabled` is 2.56 : 1 (light) and 2.81 : 1 (dark) and stays that way: WCAG exempts inactive
+`text-disabled` measures 3.40 : 1 on `bg-chrome` and stays that way: WCAG exempts inactive
 controls, and raising it would make a disabled control look available. That is a deliberate
 exemption, recorded here so it is not re-"fixed" later.
 
@@ -208,7 +250,7 @@ Numerals must come from a face with true tabular figures; if the licensed face l
 | `elev-0` | none | Flush panels, board |
 | `elev-1` | `0 1px 2px rgb(0 0 0 / .08)` | Cards, chips |
 | `elev-2` | `0 4px 12px rgb(0 0 0 / .12)` | Dropdowns, tooltips, the dice tray |
-| `elev-3` | `0 12px 32px rgb(0 0 0 / .20)` | Dialogues, bottom sheets, the hand-over screen |
+| `elev-3` | `0 12px 32px rgb(0 0 0 / .20)` | Dialogues, drawers, the hand-over screen |
 
 In dark mode shadows carry almost nothing, so each level also raises the surface token one step
 (`bg-surface` → `bg-surface-raised`) and adds a 1 px `border-subtle` hairline.
@@ -290,7 +332,9 @@ once and then assembles screens.
 | `OddsReadout` | `winChance` from the server, as a percentage and a bar | Never computed client-side (FR-67) |
 | `RangeReadout` | reachable targets + distance to each | One component for land and air (UX-07) |
 | `CapabilityPanel` | per-capability: held / not held, and the source | S-16. No Wild row (D-20) |
-| `BottomSheet` | peek · half · full (mobile) | Replaces the desktop side panel |
+| `Drawer` | closed · open (touch only) | **Right-edge overlay.** Floats above a full-bleed board and never resizes it (UX-14). Width `min(320 px, 45 vw)`. Replaces the desktop side panel on phone and tablet |
+| `ZoomControl` | overview · tactical | Snaps to the two named states; shows which is active (UX-13) |
+| `RotatePrompt` | — | The entire portrait layout on touch. One instruction, nothing else (UX-05) |
 | `Dialogue` | confirm · error · blocking | `elev-3` |
 | `Toast` | info · warning · danger | Never used for anything requiring an action |
 | `EmptyState` | icon + line + optional action | [06 §6.7](06-interaction-and-affordances.md) |

@@ -8,80 +8,101 @@ estimate, and two of them changed the design system rather than the other way ro
 
 ## 7.1 Breakpoints
 
-| Name | Width | Typical | Board | Panels |
-|---|---|---|---|---|
-| `xs` | 360 – 413 | small phone | full-bleed, pannable | `BottomSheet` |
-| `sm` | 414 – 767 | large phone | full-bleed, pannable | `BottomSheet` |
-| `md` | 768 – 1023 | tablet, split-screen desktop | fit-to-width, pannable | `BottomSheet` ≤ 858 px, side panel ≥ 859 px |
-| `lg` | 1024 – 1439 | desktop | fit, panels over the ocean margin | side panels |
-| `xl` | 1440 + | wide desktop | fit, centred, max 1600 | side panels |
+**Mobile is landscape-only (UX-05).** Breakpoints are therefore keyed to the **landscape** viewport,
+and portrait on a phone or tablet renders a rotate prompt rather than a layout.
 
-**Minimum supported viewport: 360 × 640 CSS px (UX-05).** A design target, deliberately not an NFR —
+| Name | Landscape viewport | Typical | Input | Board | Panels |
+|---|---|---|---|---|---|
+| `phone` | 640 × 360 – 932 × 430 | phone, landscape | touch | full-bleed, zoom + pan | right-edge `Drawer`, overlay |
+| `tablet` | 1024 × 768 – 1366 × 1024 | tablet, landscape | touch | full-bleed, zoom + pan | right-edge `Drawer`, overlay |
+| `desktop` | 1280 × 800 – 1439 | laptop | pointer | fit, panels over the ocean margin | persistent side panels |
+| `desktop-wide` | 1440 + | desktop | pointer | fit, centred, max 1600 | persistent side panels, widened |
+
+**Minimum supported viewport: 640 × 360 CSS px (UX-05).** A design target, deliberately not an NFR —
 no NFR in `../docs/03-requirements.md` fixes a viewport and this pack does not get to add one.
 
-### The breakpoint that actually matters is 859 px, and it is not a device class
+### The dividing line is input, not width
 
-It falls in the middle of `md`. A tablet in portrait is below it; the same tablet in landscape is
-above it. §7.2 derives it, and the consequence is that **layout cannot be chosen by device
-category** — a client switches selection mode on measured width, nothing else.
+`phone` and `tablet` differ only in how much board is visible at a playable zoom; they share one
+layout. The real break is between **touch** and **pointer**, and it changes two things: the target
+minimum (§7.2) and whether a panel may be persistent (UX-14).
 
 ---
 
-## 7.2 Touch targets, and the arithmetic that constrains the board
+## 7.2 Touch targets, and the zoom model that satisfies them
 
-`control-h-lg` is **48 px** and every primary touch target meets it. Panels, sheets, buttons,
-steppers and list rows all comply trivially. **The board does not, and cannot.**
+Two minimums apply, and conflating them is what produced the error corrected below:
+
+| Input | Minimum | Source | Required board scale |
+|---|---|---|---|
+| **Touch** | **48 px** | Material 48 dp · Apple HIG 44 pt · WCAG 2.1 SC 2.5.5 | **≥ 0.537** |
+| **Pointer** | **24 px** | WCAG 2.1 SC 2.5.8 Target Size (Minimum), AA | ≥ 0.268 |
+
+`control-h-lg` is 48 px and every panel, drawer, button, stepper and list row meets it trivially on
+every platform. The board is the only surface where the geometry has to be checked.
 
 ### The measurement
 
-The 42 territory anchors on the 1600 × 900 canvas have these nearest-neighbour distances:
+The 42 territory anchors on the 1600 × 900 canvas:
 
 | | Distance | Pair |
 |---|---|---|
 | **Closest two anchors** | **89.4 px** | `irkutsk`↔`mongolia`, and `mongolia`↔`china` |
 | 2nd | 92.2 px | `northwest_territory`↔`alberta` |
 | 3rd | 94.9 px | `east_africa`↔`congo`, `northern_europe`↔`southern_europe`, `yakutsk`↔`irkutsk` |
-| 4th | 100.0 px | `alberta`↔`ontario`, `alberta`↔`western_united_states`, `ontario`↔`quebec` |
-| 5th | 100.5 px | `iceland`↔`great_britain` |
-| Median nearest-neighbour | 497.3 px | |
+| Median nearest-neighbour | 110.0 px | |
 | **Loosest** nearest-neighbour | **145.6 px** | `japan` |
 
-The last row is the important one: **every territory has a neighbour within 145.6 px**, so the board
-is uniformly dense. There is no sparse region where a larger target would fit.
+Every territory has a neighbour within 145.6 px, so the board is uniformly dense: a target that fails
+in Asia fails everywhere. A 48 px target therefore needs **scale ≥ 0.537** — the **tactical scale**.
 
-### The consequence
+### The board zooms, so 0.537 is a threshold the player crosses, not a device test
 
-At fit-to-width, scale = viewport ÷ 1600:
-
-| Viewport | Scale | Smallest anchor gap | 48 px target? |
+| Device, landscape | Overview (fit) | At tactical zoom, board visible | Pinch needed |
 |---|---|---|---|
-| 360 | 0.225 | **20.1 px** | no |
-| 414 | 0.259 | 23.1 px | no |
-| 768 | 0.480 | 42.9 px | no |
-| **859** | **0.537** | **48.0 px** | **yes — the threshold** |
-| 1024 | 0.640 | 57.2 px | yes |
-| 1600 | 1.000 | 89.4 px | yes |
+| Small Android 640 × 360 | 0.356 → 31.8 px | 75 % × 66 % | 1.51 × |
+| iPhone SE 667 × 375 | 0.372 → 33.3 px | 78 % × 69 % | 1.44 × |
+| iPhone 15 844 × 390 | 0.389 → 34.8 px | **98 % × 72 %** | 1.38 × |
+| Pixel 8 892 × 412 | 0.413 → 37.0 px | **100 % × 77 %** | 1.30 × |
+| iPhone 15 Pro Max 932 × 430 | 0.433 → 38.8 px | **100 % × 81 %** | 1.24 × |
+| iPad mini 1024 × 768 | 0.640 → **57.2 px** | 100 % × 100 % | **none** |
+| iPad Pro 11 1194 × 834 | 0.746 → **66.7 px** | 100 % × 100 % | **none** |
 
-- A **48 px** target needs scale ≥ 0.537 → **viewport ≥ 859 px**
-- A **44 px** target needs scale ≥ 0.492 → **viewport ≥ 787 px**
+So:
 
-> **The whole board cannot offer compliant touch targets on any phone at fit-to-width.** That is
-> arithmetic about a 42-territory map on a 1600 px canvas, not a layout problem, and no amount of
-> design removes it.
+- **Tablets are compliant at rest.** Overview already exceeds 48 px; zoom is a convenience.
+- **Phones are compliant one small pinch away**, and at that pinch an iPhone 15 still holds 98 % of
+  the board width on screen. Auto-framing on selection ([03 §3.11](03-map-ui-ux.md)) performs that
+  pinch for the player, so compliance is the default state during an action, not an opt-in.
+- Overview on a phone gives 32–39 px, below the minimum — which is exactly why overview is for
+  *reading* and tapping there goes through a disambiguation popover rather than a guess.
 
-### What the design does instead
+> **Correction of record.** An earlier revision of this section concluded that *"the whole board
+> cannot offer compliant touch targets on any phone"* and made a territory list the primary mobile
+> selection path. That assumed a board fitted to the viewport. The board zooms and pans, as the genre
+> does, so the conclusion does not follow. The measurements were correct; the inference was wrong, and
+> both it and the design that followed from it have been withdrawn. The list remains, as a
+> convenience and an accessibility path (§7.7), not as the primary one.
 
-Below 859 px the board is **primarily a display**, and two selection paths exist in parallel
-([03 §3.11](03-map-ui-ux.md)):
+### A panel may never resize the board (UX-14)
 
-| Path | How |
-|---|---|
-| **Territory list — the primary path** | Every legal action also appears as a list row in the bottom sheet, at full `control-h-lg` height, grouped by continent. Fully compliant, always available |
-| **Direct touch — the secondary path** | 22 px hit radius around each anchor, plus a **disambiguation popover** when two anchors are within the touch slop. Tapping an ambiguous area opens a chooser rather than guessing |
-| **Zoom** | Pinch to ≥ 0.537 (the *tactical threshold*) makes direct touch compliant for the visible region. The zoom control snaps to it |
+Because compliance is a function of scale, anything that shrinks the board can break it. Measured
+with a persistent 280 px side rail:
 
-The list is not a fallback for an accessibility mode — it is the path a phone player uses by
-default, and it is the reason the product is usable on a 360 px screen at all.
+| Device, landscape | Full-bleed | With a 280 px rail | |
+|---|---|---|---|
+| iPhone 15 844 × 390 | 34.8 px | 31.5 px | worse |
+| iPhone 15 Pro Max 932 × 430 | 38.8 px | 36.4 px | worse |
+| **iPad mini 1024 × 768** | **57.2 px — compliant** | **41.6 px — 16 of 42 under** | **breaks compliance** |
+| iPad Pro 11 1194 × 834 | 66.7 px | 51.1 px | still compliant |
+
+A rail turns a compliant iPad mini into a non-compliant one. So on touch, **panels overlay a
+full-bleed board** and the board's scale and centre are never touched. Desktop keeps persistent
+panels because the pointer minimum is 24 px: at 1366 × 768 with the full 540 px of side chrome the
+board still yields 46.2 px, nearly twice what a pointer needs.
+
+Bottom sheets are rejected for a second, independent reason: in landscape the board has only
+**320–390 px of height** on a phone, and a half-height sheet would leave under 200 px.
 
 ---
 
@@ -207,9 +228,9 @@ standings table uses colour + glyph + name; a screen reader gets the name.
 | **Army badges** | Grow with text scale. Because the board is dense (§7.2), at 200 % the badges of adjacent territories can overlap — resolved by the declutter table in [03 §3.11](03-map-ui-ux.md), in which the **badge is never the element dropped**; the continent label and the edge lines go first |
 | Dice | Token grows to 64 px rather than the pips shrinking ([04 §4.10](04-dice-ui-ux.md)) |
 
-The badge rule is the one that needed a decision. At 200 % scaling on a 360 px board something has
-to give, and the choice is explicit: lose geography before losing the number, because the number is
-the game state and the geography is already visible as shape.
+The badge rule is the one that needed a decision. At 200 % scaling on a 640 × 360 landscape board
+something has to give, and the choice is explicit: lose geography before losing the number, because
+the number is the game state and the geography is already visible as shape.
 
 ---
 
@@ -286,7 +307,8 @@ Stated plainly, because an overclaim in a report is worse than a gap:
 |---|---|
 | **WCAG 2.1 AA conformance** | No NFR in `../docs/03-requirements.md` requires it. AA is the *target* used to pick values in §7.3 and §7.5, and `legal`-as-text and `text-disabled` are documented exceptions. A conformance claim needs an audit this pack has not run |
 | A fixed minimum viewport as a requirement | UX-05 is a design target. Promoting it would be adding an NFR, which is out of scope (§00.2) |
-| Compliant board touch targets below 859 px | §7.2 — arithmetically impossible. The list path is the answer, and it is compliant |
+| Compliant board touch targets in **Overview** on a phone | §7.2 — Overview yields 32–39 px, under the 48 px minimum. Compliance is a property of **Tactical**, which auto-framing enters on selection. Tapping in Overview goes through the disambiguation popover rather than guessing |
+| Portrait support on touch | UX-05 — the app locks to landscape. Portrait is a rotate prompt, not a degraded layout |
 | Tested screen-reader support | §7.7 specifies the announcements; verifying them is Phase 8 inspection (DA-67, DA-68) |
 | Localisation | Deferred (§00.6); 30 % expansion is reserved so it stays a translation job |
 
@@ -300,7 +322,9 @@ Run against every screen before it is called finished. Not additions to the 119-
 | # | Check | Source |
 |---|---|---|
 | DA-57 | Every target outside the board is ≥ 48 px | §7.2 |
-| DA-58 | Below 859 px every legal action is reachable from the territory list | §7.2 |
+| DA-58 | Selecting an origin auto-frames to Tactical, so every target of that action is ≥ 48 px without a deliberate pinch | §7.2, UX-13 |
+| DA-58b | No panel resizes the board on any platform; a drawer or strip overlays it | §7.2, UX-14 |
+| DA-58c | Portrait on touch renders only the rotate prompt | §7.1, UX-05 |
 | DA-59 | The zoom control snaps to the 0.537 tactical threshold | §7.2 |
 | DA-60 | Every text pair in §7.3 measures at or above its stated ratio in the built UI | §7.3 |
 | DA-61 | Every territory carries a `border-strong` stroke; no fill-only land/sea boundary | §7.3 |

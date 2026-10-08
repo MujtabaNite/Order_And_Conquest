@@ -208,9 +208,9 @@ it — or its `generated:<seed>` key — to route 6.
 {
   "mapKey": "world_classic",
   "seats": [
-    { "kind": "LocalHuman", "displayName": "Commander", "colour": "#c0392b" },
-    { "kind": "Ai",         "displayName": "Mars",      "colour": "#2980b9", "agent": "mars" },
-    { "kind": "Ai",         "displayName": "Chaos",     "colour": "#27ae60", "agent": "chaotic" }
+    { "kind": "LocalHuman", "displayName": "Commander", "colour": "#ff2e30" },
+    { "kind": "Ai",         "displayName": "Mars",      "colour": "#fbba2d", "agent": "mars" },
+    { "kind": "Ai",         "displayName": "Chaos",     "colour": "#45a4ee", "agent": "chaotic" }
   ],
   "options": {
     "seaRouteCount":       4,
@@ -235,7 +235,7 @@ it — or its `generated:<seed>` key — to route 6.
   "status":   "setup",
   "phase":    "claim",
   "seats": [ { "seatIndex": 0, "kind": "LocalHuman", "displayName": "Commander",
-               "colour": "#c0392b", "status": "active", "startingArmies": 35 }, /* ... */ ],
+               "colour": "#ff2e30", "status": "active", "startingArmies": 35 }, /* ... */ ],
   "effectiveMap": { /* frozen: territories, adjacency, continents, capabilities, seaRoutes */ },
   "state": { /* initial redacted state for the creating seat */ }
 }
@@ -306,7 +306,7 @@ Backed by the partial index `ix_matches_status` (FR-04). Finished matches are ex
   "seat":    0,                       // the seat this view is redacted FOR
   "tradeIndex": 3,                    // match-wide, public (DR-13)
   "seats": [
-    { "seatIndex": 0, "kind": "LocalHuman", "displayName": "Commander", "colour": "#c0392b",
+    { "seatIndex": 0, "kind": "LocalHuman", "displayName": "Commander", "colour": "#ff2e30",
       "status": "active", "territoryCount": 17, "armyTotal": 41, "cardCount": 3,
       "cards": [ { "cardKey": "peru", "symbol": "Artillery" },
                  { "cardKey": "wild_1", "symbol": "Wild" },
@@ -314,7 +314,7 @@ Backed by the partial index `ix_matches_status` (FR-04). Finished matches are ex
       "capabilities": ["Infantry","Cavalry","Artillery","NavalForce"],
       "airForceUsedThisTurn": false },
 
-    { "seatIndex": 1, "kind": "Ai", "agent": "mars", "displayName": "Mars", "colour": "#2980b9",
+    { "seatIndex": 1, "kind": "Ai", "agent": "mars", "displayName": "Mars", "colour": "#fbba2d",
       "status": "active", "territoryCount": 14, "armyTotal": 33, "cardCount": 2,
       "cards": null,                  // REDACTED — count is public, identity is not
       "capabilities": ["Infantry","Cavalry","AirForce","NavalForce"],

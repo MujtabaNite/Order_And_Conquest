@@ -253,58 +253,69 @@ Panels sit over the ocean margins, so the land mass is never occluded.
 
 ---
 
-## 8.7 S-08 Main board — mobile
+## 8.7 S-08 Main board — touch, landscape
+
+Landscape only (UX-05). The board is full-bleed and **never resized by a panel** (UX-14).
 
 ```
-┌─────────────────────────┐
-│ ATTACK · r7 · your turn │  phase bar, 48
-├─────────────────────────┤
-│                         │
-│      ╭───╮     ╭───╮    │
-│      │12 │─────│ 3 │    │  board, pannable
-│      ╰───╯     ╰───╯    │  pinch 0.5× – 3.0×
-│                         │  snaps to 0.537
-│   ╭───╮  ─ ─  ╭───╮     │
-│   │ 4 │       │ 7 │     │
-│   ╰───╯       ╰───╯     │
-│                         │
-│                   [⊕]   │  zoom to tactical
-├─────────────────────────┤
-│ ═══════ grab ═══════    │
-│ ⚔ 6 targets   ✈ 2   ⚓ 1 │  peek, 56
-│ [Cards 3] [Seats] [Caps]│
-│            [End phase ▸]│
-└─────────────────────────┘
+OVERVIEW — read the board. 844 × 390 shown; board height 350 after the 40 px bar.
+┌────────────────────────────────────────────────────────────────┐
+│ r7 · ATTACK · Seat 0 ●      ◉ OVERVIEW      ⚙ [Caps] [Cards 3] │ 40
+├────────────────────────────────────────────────────────────────┤
+│        ╭──╮      ╭──╮                  ╭──╮                    │
+│        │12│──────│ 3│                  │ 9│                    │  board
+│        ╰──╯      ╰──╯                  ╰──╯                    │  full-bleed
+│    ╭──╮    ─ ─ ─ ─ ─ ╭──╮         ╭──╮                         │  zoom + pan
+│    │ 4│              │ 7│═════════│ 5│                         │
+│    ╰──╯              ╰──╯         ╰──╯                         │
+│                                                         [⊕]    │  → TACTICAL
+│                                    ┌─ ⚔ Attack ─┬─ End phase ▸─┐│
+└────────────────────────────────────┴────────────┴──────────────┘
+
+TACTICAL — act. Same device, scale 0.537, 98 % of board width still visible.
+┌────────────────────────────────────┬───────────────────────────┐
+│ r7 · ATTACK · Seat 0 ●  ◉ TACTICAL │ KAMCHATKA → ALASKA     ✕ │ 40
+├────────────────────────────────────┤───────────────────────────┤
+│         ╭────╮        ╭────╮       │ 12 armies    vs    3      │
+│         │ 12 │────────│  3 │       │ dice   ① ② ③              │
+│         ╰────╯        ╰────╯       │ win chance        66 %    │
+│       kamchatka       alaska       │ ███████████████░░░░░░     │
+│                                    │ [        ATTACK        ]  │
+│   board scale + centre UNCHANGED   │ ▸ Other targets (4)       │
+│   by the drawer — it overlays      │                           │
+└────────────────────────────────────┴───────────────────────────┘
+                                          Drawer, min(320px, 45vw)
 ```
 
 | Region | Binds to |
 |---|---|
-| Phase bar | compressed `state.phase` · `round` · turn |
-| Board | display-first below 859 px ([07 §7.2](07-responsive-and-accessibility.md)) |
-| Zoom button | snaps to the **0.537 tactical threshold** |
-| Peek row | counts **derived from `legal`** — `6 targets` is `legal.count(Attack)` |
-| Tabs | open the sheet at `half` / `full` |
-| `End phase` | rightmost, as on desktop |
+| Phase bar | `state.phase` · `state.round` · `state.currentSeat`, compressed to 40 px |
+| **Zoom state chip** | `OVERVIEW` or `TACTICAL` — local view state, but shown because it governs whether a tap is precise (UX-13) |
+| Board | full-bleed, zoom + pan. Min scale = fit (Overview), max 3.5 × |
+| `[⊕]` | **snaps to exactly 0.537**, the tactical scale ([07 §7.2](07-responsive-and-accessibility.md)) |
+| Tabs | `[Caps]`, `[Cards n]` open the right drawer; `[Cards n]` opens the bottom strip ([05 §5.9](05-card-ui-ux.md)) |
+| Action cluster | bottom-**right**, not a full-width bar — vertical space is the scarce axis (§06.2) |
+| `End phase` | rightmost within the cluster, as on desktop |
+| Drawer | overlay, `elev-3`. **Does not resize the board** (UX-14) |
 
-Tapping `⚔ 6 targets` opens the **territory list** — the primary selection path on a phone, at full
-`control-h-lg` rows, grouped by continent. Direct touch remains available at a 22 px hit radius with
-a disambiguation popover ([03 §3.11](03-map-ui-ux.md)).
+Selecting an origin **auto-frames to Tactical centred on it**, so the player reaches compliant 48 px
+targets without a deliberate pinch. Direct touch is the primary path; the drawer's *"Other targets"*
+list is a convenience and an accessibility path, not a substitute ([03 §3.11](03-map-ui-ux.md)).
 
 ---
 
 ## 8.8 S-07 Claim
 
 ```
-desktop: board + bottom banner           mobile: board + sheet at peek
-┌───────────────────────────────┐        ┌─────────────────────────┐
-│ CLAIM · round 1 · your turn   │        │ CLAIM · your turn       │
-│                               │        │ ╭───╮ ╭───╮             │
-│   22 territories unclaimed    │        │ │ ? │ │ ? │             │
-│   Tap a grey territory.       │        │ ╰───╯ ╰───╯             │
-│                               │        │ ══════ grab ══════      │
-│   [ territory list ▾ ]        │        │ 22 unclaimed            │
-└───────────────────────────────┘        │ [ Choose territory ▾ ]  │
-                                         └─────────────────────────┘
+desktop: board + bottom banner           touch, landscape: board + action cluster
+┌───────────────────────────────┐        ┌──────────────────────────────────────┐
+│ CLAIM · round 1 · your turn   │        │ CLAIM · r1 · your turn   ◉ OVERVIEW  │
+│                               │        ├──────────────────────────────────────┤
+│   22 territories unclaimed    │        │   ╭──╮  ╭──╮      ╭──╮               │
+│   Tap a grey territory.       │        │   │? │  │? │      │? │               │
+│                               │        │   ╰──╯  ╰──╯      ╰──╯               │
+│   [ territory list ▾ ]        │        │  22 unclaimed       [ List ▾ ]  [⊕]  │
+└───────────────────────────────┘        └──────────────────────────────────────┘
 ```
 
 | Region | Binds to |
@@ -351,7 +362,7 @@ desktop: board + bottom banner           mobile: board + sheet at peek
 | Remaining | `state.armyPool` minus staged placements |
 | **Forced trade** | if `state.mustTrade`, this entire panel is **replaced** by S-10's trade panel — no pool, no targets, no dismissal ([05 §5.7](05-card-ui-ux.md)) |
 
-Mobile: `BottomSheet` at `half`; the breakdown collapses to a single tappable summary row.
+Touch: right `Drawer`, `min(320 px, 45 vw)`; the breakdown collapses to a single tappable summary row.
 
 ---
 
@@ -570,7 +581,6 @@ S-13 adds the sea-route row and offers **both** `NavalAttack` and a plain `Forti
 ```
 ┌───────────────────────────────────────────────┐
 │  SETTINGS                                     │
-│   Theme            ( ) Light (•) Dark ( ) Auto│
 │   Music                  ──●──────   40 %     │
 │   Effects                ────────●   90 %     │
 │   Animation speed        ──────●──   1.0×     │
@@ -606,33 +616,33 @@ S-13 adds the sea-route row and offers **both** `NavalAttack` and a plain `Forti
 Every screen has a specified desktop form **and** a specified mobile form. This table is the audit:
 no row says "to be decided".
 
-| Screen | Desktop form | Mobile form | Mobile specified in |
+| Screen | Desktop form | Touch form — landscape | Specified in |
 |---|---|---|---|
 | S-01 Splash | full screen | **identical**, full screen | §8.1 |
-| S-02 Sign in | centred card, 420 px | single column, `space-4` gutter, guest link above the keyboard safe area | §8.2 |
-| S-03 Main menu | centred column | full-width rows at 2 × `control-h-lg`; secondary buttons become a bottom row | §8.3 |
-| S-04 Match setup | one scrolling page, all sections | **one step per screen**, stepper dots in the header, `Create match` pinned to the bottom | §8.4 |
-| S-05 Sea routes | section of S-04 | step 4 of the mobile stepper | §8.4 |
-| S-06 Lobby | centred seat table | full-width seat rows; rules summary collapses to one line | §8.5 |
-| S-07 Claim | board + bottom banner | board + sheet at `peek`, with *Choose territory* list | §8.8 |
-| S-08 Main board | 3-column: 240 seats / board / 300 hand | **full-bleed board + `BottomSheet`**, peek row carries `legal` counts, zoom-to-tactical button | **§8.7, full frame** |
-| S-09 Draft | right panel | `BottomSheet` at `half`; breakdown collapses to one tappable summary row | §8.9 |
-| S-10 Cards | right panel, expanded | `BottomSheet` at `full`, 2 cards per row, Trade pinned to the sheet bottom | **[05 §5.9](05-card-ui-ux.md), full frame** |
-| S-11 Attack | right panel | `BottomSheet` at `half`; dice tray sized 48 px tokens | §8.11, [02 §2.3](02-screen-inventory-and-flows.md) |
-| S-12 Air Force | right panel + range overlay | `BottomSheet` at `full` — the range list needs the height | §8.11, [02 §2.3](02-screen-inventory-and-flows.md) |
-| S-13 Naval | right panel | `BottomSheet` at `half` | §8.11, [02 §2.3](02-screen-inventory-and-flows.md) |
-| S-14 Occupy | centred modal, `elev-3` | **full-width blocking modal**, no dismissal on either platform | §8.12 |
-| S-15 Fortify | right panel | `BottomSheet` at `half` | §8.13, [02 §2.3](02-screen-inventory-and-flows.md) |
-| S-16 Capabilities | right panel section | `BottomSheet` at `full` | §8.10, [02 §2.3](02-screen-inventory-and-flows.md) |
+| S-02 Sign in | centred card, 420 px | centred card, reflowed to the shorter height | §8.2 |
+| S-03 Main menu | centred column | full-width rows; secondary buttons to a bottom row | §8.3 |
+| S-04 Match setup | one scrolling page | **mode cards first (§09.6), then one step per screen**, stepper dots in the header | §8.4, [09 §9.6](09-art-direction.md) |
+| S-05 Sea routes | section of S-04 | a step in the setup stepper | §8.4 |
+| S-06 Lobby | centred seat table | full-width seat rows; rules summary to one line | §8.5 |
+| S-07 Claim | board + bottom banner | board + action cluster, instruction banner top-centre | §8.8 |
+| S-08 Main board | 3-column: 240 seats / board / 300 hand | **full-bleed board, right `Drawer`, bottom-right action cluster, right seat rail** | **§8.7, both zoom states framed** |
+| S-09 Draft | right panel | right `Drawer`; breakdown collapses to one row | §8.9 |
+| S-10 Cards | right panel, expanded | **bottom overlay strip** — the one panel that is not a drawer, because a hand is horizontal | **[05 §5.9](05-card-ui-ux.md), full frame** |
+| S-11 Attack | right panel | right `Drawer` | §8.11, §8.7 |
+| S-12 Air Force | right panel + range overlay | right `Drawer`, wide — the range list needs the width | §8.11 |
+| S-13 Naval | right panel | right `Drawer` | §8.11 |
+| S-14 Occupy | centred modal, `elev-3` | **centred blocking modal**, no dismissal on either platform | §8.12 |
+| S-15 Fortify | right panel | right `Drawer` | §8.13 |
+| S-16 Capabilities | right panel section | right `Drawer`, wide | §8.10 |
 | S-17 Hand-over | blocking full screen | **identical** — blocking full screen, by requirement | §8.14 |
 | S-18 Game over | centred standings table | full-width rows, standings scroll | §8.15 |
-| S-19 Replay | board + 320 px log panel | board + `BottomSheet` log at `half`; transport bar pinned | §8.16 |
+| S-19 Replay | board + 320 px log panel | board + right `Drawer` log; transport bar bottom-centre | §8.16 |
 | S-20 Settings | centred column | full-width rows | §8.17 |
 
 | | |
 |---|---|
-| Screens wireframed | **20 of 20**, desktop **and** mobile |
-| Screens whose mobile form **changes structure** | **12** — S-04, S-05, S-07…S-13, S-15, S-16, S-19 |
+| Screens wireframed | **20 of 20**, desktop **and** touch-landscape |
+| Screens whose touch form **changes structure** | **12** — S-04, S-05, S-07…S-13, S-15, S-16, S-19 |
 | Screens that reflow only | **6** — S-02, S-03, S-06, S-14, S-18, S-20 |
 | Screens identical on both | **2** — S-01, S-17 |
 | Hex literals | **none** (check 1, [01 §1.10](01-design-system.md)) |
@@ -640,11 +650,10 @@ no row says "to be decided".
 | Screens that write nothing | S-01, S-16, S-19, S-20 |
 | Screens with no dismissal | S-14, S-17 |
 
-> **The mobile forms are not reflowed desktop layouts.** Thirteen of the twenty change structure, and
-> S-08 changes *interaction model* — below 859 px the territory list becomes the primary selection path,
-> because [07 §7.2](07-responsive-and-accessibility.md) measures that **42 of 42 territories** fall below
-> a 48 px touch target at every phone width. That is the finding behind
-> [`../PLATFORM-SCOPE-PROPOSAL.md`](../PLATFORM-SCOPE-PROPOSAL.md).
+> **The touch forms are not reflowed desktop layouts.** Twelve of the twenty change structure, and
+> S-08 changes *interaction model*: the board becomes a zoomable canvas with two named states, and
+> every panel overlays it rather than resizing it (UX-13, UX-14). The reference confirms the shape —
+> no side panels in play, a bottom-centre HUD and a right seat rail ([09 §9.5](09-art-direction.md)).
 
 ### Design acceptance checks
 
