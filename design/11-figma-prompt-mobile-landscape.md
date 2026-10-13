@@ -46,7 +46,11 @@ A1 · COLOUR — exact values, no substitutions, no additions.
   Board    ocean #1897C8 · ocean-highlight #53B7E5 · ocean-deep #2D5E74
            land-unowned #383E48 · outline #120400 · banner-panel #D3E9F3
   Chrome   deep #081A24 · base #0A2433 · panel #123A50 ·
-           panel-raised #20658A · line #1D4E68
+           panel-raised #20658A · line #1D4E68 ·
+           list-ground #102032 (behind list pills) ·
+           panel-charcoal #333333 (settings rows) ·
+           overlay/instruction #008CD4 (full-screen teaching, flat)
+           FOUR GROUNDS, FOUR JOBS — never interchange them.
   Text     primary #FFFFFF · on-panel #E8F2F7 · secondary #9FC0D2 ·
            disabled #5E7788 · ink #000000 (only on banner-panel)
   State    gold #FBBA2D · legal #5FD13A · danger #FF5457 · info #45A4EE ·
@@ -138,6 +142,40 @@ Then these, specific to touch:
                 text. Used for one-line guidance such as "Tap any of your
                 territories to begin deploying troops."
   RotatePrompt  the entire portrait layout: one icon, one line, nothing else
+
+  ModeCard      for S-04's three modes. A FULL-HEIGHT VERTICAL SLAB with
+                SQUARE corners — not a rounded card. Three sit edge to edge
+                with a 1px #868686 seam.
+                  inactive: vertical grey gradient #DEDEDE → #909090
+                  active  : filled #3D4F28 olive. TINTED, not outlined.
+                  contents: a large white line-art icon ~48px, a display-weight
+                            white title with a dark outline, then two or three
+                            short #ECECEC descriptor lines, all centred
+  ListRow       a GLOSSY PILL, not a ruled row. radius-full, full width,
+                height 50, on list-ground #102032, 8px gaps.
+                  active  : vertical gradient #3199E5 → #2C87C9
+                  inactive: vertical gradient #9B999C → mid grey
+                  lighter top edge, darker bottom edge — bevelled
+                  label left, bold white with a dark outline, ordinal prefix;
+                  trailing icon buttons, a value, then a circular status dot
+                USE FOR EVERY LIST: S-03 in-progress, S-06 seats, S-12 range,
+                S-16 capabilities, S-19 log. No hairline-ruled rows anywhere.
+  TitlePlaque   a wide gold pill, thick #ECECEC 3px border, strong bevel,
+                gradient #F1E659 → #F9D85B → #FFFC72, display-weight white
+                label with a heavy dark outline. AT MOST ONE PER SCREEN.
+  PanelRow      label left (large, light, regular weight), control right, on
+                panel-charcoal #333333, hairline divider.
+                  slider track #317EB8, 6px, radius-full
+                  slider knob  a LARGE glossy circular disc #4990CA carrying a
+                               WHITE LINE-ART ICON — speaker for volume, eye
+                               for UI scale. The icon is the point.
+                  toggle       blue pill track, white circular knob
+  InstructionOverlay  FULL-SCREEN flat #008CD4, white body copy, middot
+                bullets, left-aligned, generous line-height. Inline emphasis
+                uses the SEAT COLOUR: "You are the Red player" with "Red" in
+                that seat's red. SEPARATE from the small light top-centre
+                banner, which is #D3E9F3 with BLACK text and one line of
+                in-play guidance. Two surfaces, two jobs.
 
 ───────────────────────────────────────────────────────────────────────────
 D · SCREENS — 21 frames, each at 844×390 and 932×430
@@ -261,6 +299,13 @@ E · HARD CONSTRAINTS
   17. Do NOT swap seat fill and seat accent.
   18. Do NOT copy the RISK wordmark, Hasbro or SMG artwork, or any character
       portrait.
+  19. Do NOT round a ModeCard's corners, or mark its selection with only a
+      border. Selection is a #3D4F28 tint.
+  20. Do NOT draw ruled table rows. Every list row is a glossy pill.
+  21. Do NOT use the gold TitlePlaque more than once per screen.
+  22. Do NOT give a slider a plain knob — it carries a line-art icon.
+  23. Do NOT merge the light top-centre banner with the full-screen #008CD4
+      overlay.
 
 ───────────────────────────────────────────────────────────────────────────
 F · SELF-CHECK — verify and report each line
@@ -281,6 +326,11 @@ F · SELF-CHECK — verify and report each line
   [ ] Ownership is encoded by colour AND pattern
   [ ] No chat, shop, leaderboard, timer or monetisation element exists
   [ ] Every number uses tabular figures
+  [ ] The three mode cards are square-cornered slabs, the active one tinted
+  [ ] Every list is built from the glossy pill; no ruled rows exist
+  [ ] The gold TitlePlaque appears at most once per screen
+  [ ] Every slider knob carries a line-art icon
+  [ ] The four ground colours are each used only for their own job
 
 ═══════════════════════════════════════════════════════════════════════════
 ```

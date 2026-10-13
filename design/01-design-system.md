@@ -71,7 +71,7 @@ are chosen independently.
 | **Accent** | the army badge disc, the seat ring, the territory-pulse on change, any UI element naming the seat |
 
 > **Never interchange them.** A territory in accent red would glare; a badge in fill gold would
-> disappear against the landmass. §9.9 check DA-78 asserts it.
+> disappear against the landmass. §9.10 check DA-78 asserts it.
 
 The accented `seat-0` differs from the sampled pure red `#FF0103` only by a lift for white-numeral
 legibility on the badge; the fill keeps the exact sampled value.
@@ -156,6 +156,9 @@ Values marked **sampled** come from a reference frame — see [09 §9.2](09-art-
 | `bg-chrome` | `#0A2433` | Screen background, menus | **sampled** |
 | `bg-panel` | `#123A50` | Panels, drawers, cards | **sampled** |
 | `bg-panel-raised` | `#20658A` | Dialogues, popovers, the active row | **sampled** |
+| `bg-list-ground` | `#102032` | Behind a stack of `ListRow` pills | **sampled** |
+| `bg-panel-charcoal` | `#333333` | Settings-style panels and their rows | **sampled** |
+| `overlay-instruction` | `#008CD4` | Full-screen instruction takeover, flat fill | **sampled** |
 | `bg-ocean` | **`#1897C8`** | The sea on the board | **sampled** |
 | `bg-ocean-hi` | `#53B7E5` | Wave highlight | **sampled** |
 | `bg-land` | **`#383E48`** | Unowned landmass | **sampled** |
@@ -336,6 +339,11 @@ once and then assembles screens.
 | `Drawer` | closed · open (touch only) | **Right-edge overlay.** Floats above a full-bleed board and never resizes it (UX-14). Width `min(320 px, 45 vw)`. Replaces the desktop side panel on phone and tablet |
 | `ZoomControl` | overview · tactical | Snaps to the two named states; shows which is active (UX-13) |
 | `RotatePrompt` | — | The entire portrait layout on touch. One instruction, nothing else (UX-05) |
+| `ModeCard` | inactive · active | **Full-height square-cornered slab**, 1 px seam between cards. Active is **tinted** `#3D4F28`, never merely outlined. S-04's three modes ([09 §9.9](09-art-direction.md)) |
+| `ListRow` | active · inactive | **A glossy `radius-full` pill**, not a ruled row. `#2C87C9` active, grey inactive, on `chrome-list-ground`. **Every list in the product uses this** |
+| `TitlePlaque` | — | Gold bevelled plaque with a 3 px light border. **At most one per screen** — it is the strongest emphasis device in the system |
+| `PanelRow` | default · with-help | Label left, control right, on `panel-charcoal`, hairline divider. Slider knobs are large glossy discs **carrying a line-art icon** |
+| `InstructionOverlay` | — | Full-screen flat `#008CD4`, white copy, middot bullets, inline emphasis in the seat colour. **Distinct from** the light top-centre `banner-panel`, which carries one line while the board stays visible |
 | `Dialogue` | confirm · error · blocking | `elev-3` |
 | `Toast` | info · warning · danger | Never used for anything requiring an action |
 | `EmptyState` | icon + line + optional action | [06 §6.7](06-interaction-and-affordances.md) |

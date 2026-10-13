@@ -10,6 +10,14 @@ No hex literal appears below. Every colour is a token ([01 §1.10](01-design-sys
 `GET /api/matches/{id}/legal?seat=n`, `map.*` is the map file, `rules.*` is `../shared/rules.json`,
 and `event.*` is a push event. A region bound to nothing is static copy.
 
+> **Every list below is a `ListRow` pill, not a ruled table row.** The ASCII frames draw rows with
+> box characters because ASCII has no other way to show a row — but the built form is the glossy
+> `radius-full` pill of [09 §9.9](09-art-direction.md): `#2C87C9` when active, grey when not, on
+> `bg-list-ground`, with an 8 px gap. That applies to S-03's in-progress list, S-06's seat list,
+> S-12's range list, S-16's capability rows and S-19's action log. Likewise a screen title drawn
+> here as plain text is a `TitlePlaque` where §9.9 says so, and a slider is a `PanelRow` with an
+> icon-bearing knob.
+
 ---
 
 ## 8.1 S-01 Splash

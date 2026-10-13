@@ -1,10 +1,31 @@
-# 10 · Figma AI Prompt — Desktop
+# 10 · Style and Component Kit *(desktop screens retained for reference)*
 
-**Copy everything inside the rule below into Figma AI as one prompt.** It is written to be
-un-improvisable: every colour, size and string is given exactly, and §D names what must never be
-invented. Nothing in it needs the rest of this pack to be read first.
+> ## Status: §A and §B are canonical. §C's desktop screens are not a product target.
+>
+> **All three clients now target mobile in landscape** ([`../docs/05`](../docs/05-system-design.md)
+> §5.3), so the 1920 × 1080 desktop frames in §C are no longer something anyone will build.
+>
+> **Do not delete this file.** Its §A (colour, type, spacing) and §B (every component, B1–B11) are the
+> **shared kit that [`11-figma-prompt-mobile-landscape.md`](11-figma-prompt-mobile-landscape.md)
+> builds on** — doc 11 says *"Build B1–B6 exactly as in the desktop kit"* and names B7–B11 by
+> reference. Removing this file would strip the component definitions out of the prompt that is
+> actually used.
+>
+> | Section | Status |
+> |---|---|
+> | **§A Styles** | **Canonical.** Same tokens for every client |
+> | **§B Components** | **Canonical.** B1–B11 are the component library |
+> | §C Screens, 1920 × 1080 | **Reference only.** Not built. Use doc 11's frames |
+> | §D Constraints | Canonical, except the pointer-specific items |
+> | §E Self-check | Applies to §A and §B |
+>
+> If you want a build prompt, use **doc 11**. If you want to know what a `ListRow` or an `ArmyBadge`
+> is, it is defined here.
 
-Companion prompt for touch: [`11-figma-prompt-mobile-landscape.md`](11-figma-prompt-mobile-landscape.md).
+**Copy §A and §B into Figma AI as one prompt.** It is written to be un-improvisable: every colour,
+size and string is given exactly, and §D names what must never be invented.
+
+Build prompt for the shipping clients: [`11-figma-prompt-mobile-landscape.md`](11-figma-prompt-mobile-landscape.md).
 
 > **Why it is this long.** A short prompt makes a design tool guess, and a guess produces a different
 > palette, a different layout and a different set of screens every run. Every section below removes
@@ -52,6 +73,15 @@ A1 · COLOUR STYLES — use these exact hex values. Do not substitute, tint,
     chrome/panel             #123A50
     chrome/panel-raised      #20658A
     chrome/line              #1D4E68
+    chrome/list-ground       #102032    (behind a stack of list pills)
+    chrome/panel-charcoal    #333333    (settings-style panels and rows)
+    overlay/instruction      #008CD4    (full-screen instruction takeover)
+
+  FOUR GROUNDS, FOUR JOBS. These are not interchangeable:
+    chrome/base          menus, lobby
+    chrome/list-ground   behind list pills
+    overlay/instruction  full-screen first-run teaching, flat fill
+    chrome/panel-charcoal settings panels
 
   Text
     text/primary             #FFFFFF
@@ -168,6 +198,63 @@ B6 · Also build, in the same language
   CardHand · PhaseBar · OddsReadout (percentage + bar) · RangeReadout ·
   CapabilityPanel · Drawer · Dialogue · Toast · EmptyState · Skeleton
 
+B7 · ModeCard — for S-04's three modes
+  A FULL-HEIGHT VERTICAL SLAB with SQUARE corners. Not a rounded card.
+  Three of them sit edge to edge, separated by a 1px #868686 seam.
+    inactive : a vertical grey gradient, #DEDEDE at the top to #909090 at the
+               middle
+    active   : filled #3D4F28, a desaturated olive. The selected mode is
+               TINTED, not outlined and not merely bordered.
+    contents, top to bottom, centred:
+      a large white line-art icon, about 56px
+      a title in display weight, white, with a dark outline
+      two or three short descriptor lines in #ECECEC
+  Do not round the corners. Do not add a drop shadow between slabs. Do not mark
+  selection with only a border.
+
+B8 · ListRow — a glossy pill, NOT a ruled table row
+  radius-full, full width, height 50, sitting on chrome/list-ground #102032
+  with an 8px gap between rows.
+    active   : vertical gradient #3199E5 top to #2C87C9 body
+    inactive : vertical gradient #9B999C top to mid grey
+    every pill has a lighter top edge and a darker bottom edge — bevelled
+    label   : left, bold white with a dark outline, prefixed by an ordinal
+    trailing: small square icon buttons, then a value, then a circular status
+              dot at the far right
+  USE THIS FOR EVERY LIST IN THE PRODUCT: the in-progress list on S-03, the
+  seat list on S-06, the range list on S-12, the capability rows on S-16 and
+  the action log on S-19. Do not draw ruled rows with hairline separators
+  anywhere.
+
+B9 · TitlePlaque
+  A wide gold pill with a thick light border and a strong bevel.
+    gradient : #F1E659 → #F9D85B → #FFFC72
+    border   : #ECECEC, 3px
+    label    : display weight, white, heavy dark outline
+  AT MOST ONE PER SCREEN. Use it for the screen title on S-20, S-18 and S-04's
+  step headings. It is the strongest emphasis device in the product and loses
+  all of its force if repeated.
+
+B10 · PanelRow and Slider
+  Row  : label left, control right, on chrome/panel-charcoal #333333, with a
+         hairline divider. The label is LARGE and light and regular weight —
+         not a small-caps label.
+  Track: #317EB8, 6px, radius-full
+  Knob : a LARGE circular glossy disc #4990CA carrying a WHITE LINE-ART ICON —
+         a speaker for volume, an eye for UI scale. The icon in the knob is the
+         point: it says what the slider controls without reading the label.
+  Toggle: a blue pill track with a white circular knob
+  Help  : a small circular "?" button at the right of rows that need one
+
+B11 · InstructionOverlay
+  A FULL-SCREEN flat overlay/instruction #008CD4 with white body copy,
+  bulleted with middots, left-aligned, generous line-height. Inline emphasis
+  uses the SEAT COLOUR — write "You are the Red player" with "Red" in that
+  seat's own red.
+  This is separate from the small top-centre banner in C1, which is light
+  (board/banner-panel #D3E9F3) with BLACK text and carries one line while the
+  board stays visible. Two surfaces, two jobs. Do not merge them.
+
 ───────────────────────────────────────────────────────────────────────────
 C · SCREENS — 20 frames at 1920×1080, named exactly "S-01 Splash" etc.
 ───────────────────────────────────────────────────────────────────────────
@@ -278,6 +365,14 @@ D · HARD CONSTRAINTS — do not violate any of these
   15. Do NOT copy the RISK wordmark, Hasbro or SMG artwork, or any character
       portrait. The art direction is the reference; the assets are not.
 
+  16. Do NOT round the corners of a ModeCard, or mark its selection with only a
+      border. Selection is a #3D4F28 tint.
+  17. Do NOT draw ruled table rows. Every list row is a glossy pill (§B8).
+  18. Do NOT use the gold TitlePlaque more than once on a screen.
+  19. Do NOT give a slider a plain knob. The knob carries a line-art icon.
+  20. Do NOT merge the light top-centre banner with the full-screen #008CD4
+      instruction overlay. They are different surfaces.
+
 ───────────────────────────────────────────────────────────────────────────
 E · SELF-CHECK — verify before returning, and state the result of each
 ───────────────────────────────────────────────────────────────────────────
@@ -296,6 +391,13 @@ E · SELF-CHECK — verify before returning, and state the result of each
   [ ] The dice tray labels a tie in words and shows discarded dice
   [ ] No chat, shop, leaderboard, timer or monetisation element exists
   [ ] Every number uses tabular figures
+  [ ] S-04's three mode cards are square-cornered full-height slabs, the active
+      one tinted #3D4F28
+  [ ] Every list in the file is built from the glossy pill of §B8, and no
+      hairline-ruled list rows exist anywhere
+  [ ] The gold TitlePlaque appears at most once per screen
+  [ ] Every slider knob carries a line-art icon
+  [ ] The four ground colours are each used only for their own job
 
 ═══════════════════════════════════════════════════════════════════════════
 ```

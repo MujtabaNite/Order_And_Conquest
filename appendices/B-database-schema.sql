@@ -83,6 +83,12 @@ CREATE TABLE matches (
                                                       -- reconstructs the exact stream (FR-58).
 
     options         jsonb       NOT NULL DEFAULT '{}'::jsonb,
+    -- FROZEN AT CREATION, exactly like effective_map. Holds diceSides and
+    -- attackRange (FR-84, FR-85) plus the resolved sea-route count.
+    -- READ THESE FROM HERE, NEVER FROM shared/rules.json. A live read of
+    -- diceSides consumes the SAME number of random draws, so rng_position
+    -- tracks the log perfectly while every face differs: a replay diverges
+    -- and TC-DET-01..04 all still pass. TC-PER-07 is the only guard.
     trade_index     int         NOT NULL DEFAULT 0,   -- Position in the escalation table.
                                                       -- Match-wide, monotonic, never resets (DR-13).
     room_code       text,                             -- Built now, used in Phase 6.

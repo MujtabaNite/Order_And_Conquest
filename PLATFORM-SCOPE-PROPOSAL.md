@@ -1,6 +1,63 @@
+# Platform Scope Proposal — WITHDRAWN
+
+**Project:** Order & Conquest · **Withdrawn:** 13 October 2026 · **Status: no committee decision
+required**
+
+> ## This request is withdrawn. No amendment to C-04 is needed.
+>
+> The project now ships **all three clients, every one targeting mobile in landscape**. C-04 reads
+> *"Three clients must all ship: Unity, Godot, Flutter + Flame. None may be dropped"* — and all three
+> do ship. **Nothing is being dropped, so there is nothing to amend.**
+>
+> This document is kept, unedited below the rule, because §14.5 requires that *"a cut that is
+> reported is a scope decision; a cut that is not reported is a gap in the evidence."* The same
+> discipline applies to a cut that was **considered and then not made**: the reasoning is part of the
+> record, and a reader who finds this file referenced elsewhere should be able to see why it stopped
+> being needed.
+
+### Why it became unnecessary
+
+The request rested on an assumption that no longer holds: that the three clients covered three
+*platforms*, so dropping one dropped a platform. They do not. They cover three **runtimes**, which is
+what §8.5 of the implementation plan always said they were for:
+
+> *"the three clients exist to demonstrate one backend serving different runtimes — not to cover
+> every platform."*
+
+With every client on Android in landscape, the architecture claim is not weakened by the change — it
+is **sharpened**, because the device class is now held constant and the toolchain is the only
+variable. Unity, Godot and Flutter + Flame all export to Android, so no client needs to be sacrificed
+to reach a mobile-only product.
+
+### What carried forward from this document
+
+Three findings outlived the request and now live in the specification rather than here:
+
+| Finding | Where it lives now |
+|---|---|
+| Landscape roughly doubles the visible board at a playable zoom — 75–100 % against portrait's 42–50 % | [`design/07`](design/07-responsive-and-accessibility.md) §7.2, UX-05 |
+| The tactical zoom scale is 0.537, and a panel that resizes the board can break the touch guarantee | [`design/07`](design/07-responsive-and-accessibility.md) §7.2, UX-13, UX-14 |
+| Room mode makes Phase 6 mandatory, not optional | [`docs/01`](docs/01-introduction.md) §1.6 |
+
+### What this change did *not* resolve
+
+**O-02 is now larger, not smaller.** It recorded that the Flutter client *"cannot host the server"*.
+With all three clients on handsets, **nothing in the product runs the API or the database.** They must
+live on a separate machine, which puts C-10 (*"no cloud infrastructure is required"*) and NFR-23 under
+real pressure, and invalidates §5.1's assumption that a client and the server can share a machine.
+
+That is an open architectural decision and it is recorded as such in
+[`docs/05`](docs/05-system-design.md) §5.3. It is **not** a scope reduction and does not need this
+document.
+
+---
+
+<details>
+<summary><strong>The withdrawn request, retained for the record</strong></summary>
+
 # Platform Scope Proposal — Request to Amend Constraint C-04
 
-**Project:** Order & Conquest · **Date:** 8 October 2026 · **Status:** awaiting committee decision
+**Project:** Order & Conquest · **Date:** 8 October 2026 · **Status:** withdrawn 13 October 2026
 · **Revision 2** — see §2
 
 > **The request in one sentence.** We ask the committee to amend locked constraint **C-04** so that
@@ -253,3 +310,5 @@ in the evidence."*
 | FR / NFR / test counts and wording | [`docs/03-requirements.md`](docs/03-requirements.md), [`appendices/F-test-cases.md`](appendices/F-test-cases.md), [`docs/13-traceability-matrix.md`](docs/13-traceability-matrix.md) |
 | The three-clients rationale | [`docs/08-implementation-plan.md`](docs/08-implementation-plan.md) §8.5 |
 | Three shipped modes; Phase 6 mandatory | [`docs/01-introduction.md`](docs/01-introduction.md) §1.6, [`design/09` §9.6](design/09-art-direction.md) |
+
+</details>

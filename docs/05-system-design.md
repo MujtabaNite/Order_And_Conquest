@@ -196,11 +196,32 @@ territory is interactive if and only if it appears in the current legal-action l
 computes whether an attack is permitted, what reinforcement is due, whether a card set is valid, or
 whether a target is in Air Force range.
 
-| Client | Engine | Role | Notes |
-|---|---|---|---|
-| Unity | Unity 2022 LTS, C# | Reference client, built first | Shares the C# DTO types directly |
-| Godot | Godot 4, GDScript or C# | Second client; proves the API is not Unity-shaped | Built only after Unity is complete |
-| Flutter + Flame | Dart | Mobile | Cannot host the server; see O-02 |
+**All three clients target mobile, landscape-only.** They differ by *runtime*, not by platform — which
+is what the three clients were always for (§8.5: *"the three clients exist to demonstrate one backend
+serving different runtimes — not to cover every platform"*). Running three runtimes on the same device
+class is a cleaner comparison than running them on three platforms, because the only variable left is
+the toolchain.
+
+| Client | Engine | Target | Role | Notes |
+|---|---|---|---|---|
+| Unity | Unity 2022 LTS, C# | **Android, landscape** | Reference client, built first | Shares the C# DTO types directly |
+| Godot | Godot 4, GDScript or C# | **Android, landscape** | Second client; proves the API is not Unity-shaped | Built only after Unity is complete |
+| Flutter + Flame | Dart | **Android, landscape** | Third client | DTOs generated from `shared/contracts/`; no first-party SignalR for Dart, so REST polling is the fallback (§8.6) |
+
+> **Consequence, and it is now the project's sharpest open question.** O-02 recorded that the Flutter
+> client *"cannot host the server"* — PostgreSQL and Kestrel do not run on a handset. With **all three**
+> clients on handsets, **nothing in the product runs the server.** The API and database must live on a
+> separate machine, which makes O-02 a decision for every client rather than one, and puts pressure on
+> C-10 (*"no cloud infrastructure is required"*) and NFR-23. §5.1's deployment view assumes the server
+> and a client share a machine; that assumption no longer holds. **Unresolved — see O-02.**
+
+### Orientation
+
+Portrait is not supported on any client. A client launched in portrait renders a single rotate prompt
+and nothing else (UX-05, `design/11` §D S-00). The board is 16 : 9, and at the zoom where every
+territory carries a 48 px touch target a landscape phone shows 75–100 % of the board width against
+42–50 % in portrait — so landscape is a measured decision, not a preference
+([`../design/07`](../design/07-responsive-and-accessibility.md) §7.2).
 
 ### Screen inventory
 

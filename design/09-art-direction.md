@@ -275,7 +275,119 @@ allowed to learn from.
 
 ---
 
-## 9.9 Design acceptance checks
+## 9.9 Menu, list and panel anatomy — sampled
+
+The board HUD (§9.5) is only half the product. These are the surfaces every screen outside the
+board is built from, measured from `frame_030.png` (mode select), `frame_045.png` (list),
+`frame_110.png` (instruction overlay) and `frame_124.png` (settings).
+
+The important discovery: **the reference uses three different ground colours, not one.** A navy
+gradient for menus, a flat strong blue for full-screen instruction, and a neutral charcoal for
+settings-style panels. Treating them all as "the panel colour" would flatten the hierarchy that makes
+the product legible.
+
+| Token | Value | Surface | Sampled from |
+|---|---|---|---|
+| `chrome-navy` | `#0A2433` | menus, lobby, behind list rows | `frame_023` |
+| `chrome-list-ground` | `#102032` | the ground behind a stack of list pills | `frame_045` |
+| `overlay-instruction` | **`#008CD4`** | full-screen instruction / tutorial takeover, flat fill (100 % modal) | `frame_110` |
+| `panel-charcoal` | **`#333333`** | settings-style panels and their rows | `frame_124` |
+
+### Mode cards — tall vertical slabs, not rounded boxes
+
+This is the component our S-04 needs for Pass & Play / Player vs AI / Room, and the reference has it
+exactly (`frame_030`, *"Select a game type"*).
+
+| Property | Measured |
+|---|---|
+| Form | **Full-height vertical slabs, square corners**, sitting edge to edge |
+| Divider | a 1 px `#868686` seam between slabs — not a gap |
+| Inactive fill | a **vertical grey gradient**, `#DEDEDE` at the top through `#909090` at the middle |
+| **Active fill** | **`#3D4F28`** — a desaturated olive. The selected mode is tinted, not outlined |
+| Icon | large line-art glyph, white, ~56 px, top-centre |
+| Title | display weight, white with a dark outline, centred under the icon |
+| Descriptor | two or three short lines, `#ECECEC`, centred, small |
+| Optional badge | a gold pill floating over the card (the reference uses it for a season timer) |
+
+```
+┌──────────┬──────────┬──────────┐
+│   ★★★    │          │          │   active card: olive #3D4F28
+│   ▣      │   ▣      │   ▣      │   inactive: grey gradient
+│          │          │          │   #DEDEDE → #909090
+│  Pass &  │  Player  │  Room    │   title: display, white, dark outline
+│   Play   │  vs AI   │          │
+│          │          │          │   descriptor: 2-3 lines #ECECEC
+│ 2-6 on   │ you vs   │ invite   │
+│ one      │ 1-5 bots │ players, │
+│ device   │          │ add AI   │
+└──────────┴──────────┴──────────┘
+             1px #868686 seams
+```
+
+### List rows are glossy full-radius pills
+
+`frame_045` settles a question the pack had answered wrongly: list rows are **not** ruled table rows.
+
+| Property | Measured |
+|---|---|
+| Form | **`radius-full` pill**, full width, ~50 px tall |
+| Vertical rhythm | ~8 px gap between pills, on `chrome-list-ground` `#102032` |
+| **Active / current** | vertical gradient `#3199E5` top → **`#2C87C9`** body |
+| Inactive | vertical gradient `#9B999C` top → mid grey |
+| Label | left, bold white with a dark outline, prefixed by an ordinal |
+| Trailing cluster | small square icon buttons, then a value, then a circular status dot at the far right |
+| Gloss | a lighter top edge and a darker bottom edge on every pill — bevelled, never flat |
+
+This is the row form for S-03's in-progress list, S-06's seat list, S-12's range list, S-16's
+capability rows and S-19's action log. **Replace every ruled row in [`08-wireframes.md`](08-wireframes.md)
+with this pill.**
+
+### Section titles sit in a gold bevelled plaque
+
+| Property | Measured |
+|---|---|
+| Form | a wide gold pill with a thick light border and a strong bevel |
+| Gradient | `#F1E659` → `#F9D85B` → `#FFFC72` left to right along the sampled row |
+| Border | `#ECECEC`, ~3 px |
+| Label | display weight, white, with a heavy dark outline |
+
+Used for the title of a panel — the reference's *"World Domination"*. Ours takes the screen name on
+S-20 Settings, S-18 Game over and S-04's step headings. It is the product's strongest emphasis
+device and should appear **once per screen at most**.
+
+### Panel rows and sliders
+
+| Property | Measured |
+|---|---|
+| Row | label left, control right, on `panel-charcoal` `#333333` with a hairline divider |
+| Label | large, light, regular weight — not a small-caps label |
+| Slider track | `#317EB8`, ~6 px, `radius-full` |
+| **Slider knob** | a **large circular glossy knob `#4990CA`** carrying a **white line-art icon** — a speaker for volume, an eye for UI scale |
+| Toggle | a blue pill track with a white circular knob |
+| Help | a small circular `?` button at the right of a row that needs it |
+
+The icon-bearing knob is worth copying rather than simplifying: it tells the player what the slider
+controls without relying on the label, which matters at arm's length on a tablet.
+
+### Instruction overlay
+
+A **full-screen flat `#008CD4`** takeover with white body copy, bulleted with middots, left-aligned,
+generous line-height. Inline emphasis uses the **seat colour** — the reference writes *"You are the
+Red player"* with "Red" in the seat's own red.
+
+This is distinct from §9.5's small top-centre instruction banner (`banner-panel` `#D3E9F3`, black
+text). Two surfaces, two jobs:
+
+| | Use |
+|---|---|
+| Top-centre banner, light, black text | one line of in-play guidance, board still visible |
+| Full-screen `#008CD4`, white text | first-run teaching, several lines, board hidden |
+
+Ours uses the banner in play and the overlay for the optional first-run walkthrough only.
+
+---
+
+## 9.10 Design acceptance checks
 
 | # | Check | Rule |
 |---|---|---|
@@ -287,6 +399,11 @@ allowed to learn from.
 | DA-81 | S-04 opens with the three mode cards, and each resolves to the seat composition in §9.6 | §9.6 |
 | DA-82 | Ownership is encoded by colour **and** pattern on every territory | §9.7, UX-03 |
 | DA-83 | No Hasbro/SMG wordmark, portrait or map asset appears in any deliverable | §9.8 |
+| DA-84 | Mode cards are full-height square-cornered slabs with a 1 px seam; the active one is **tinted** `#3D4F28`, not outlined | §9.9 |
+| DA-85 | Every list row is a glossy `radius-full` pill — `#2C87C9` when active, grey when not. **No ruled table rows anywhere** | §9.9 |
+| DA-86 | Slider knobs are large circular glossy discs carrying a white line-art icon | §9.9 |
+| DA-87 | The gold plaque appears at most once per screen | §9.9 |
+| DA-88 | The four ground colours keep their own jobs and are never interchanged: `#0A2433` menus · `#102032` behind list pills · `#008CD4` full-screen instruction · `#333333` settings panels | §9.9 |
 
 ---
 
