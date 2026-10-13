@@ -1,11 +1,25 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "_comment": [
     "Order & Conquest — all tunable numbers live here as DATA, not in code.",
     "OrderAndConquest.Engine loads this once at startup and binds it to RulesConfig.",
     "Values marked SOURCED are supported by docs/12-references.md.",
     "Values marked ASSUMPTION are design decisions recorded in docs/00-decisions-and-assumptions.md.",
-    "Changing a value here must never require an engine rebuild."
+    "Changing a value here must never require an engine rebuild.",
+    "",
+    "REWORKED October 2026 (prototype edition). What changed:",
+    "  * seaRoutes.min/max/default REMOVED — routes are a fixed list per map (D-37),",
+    "    authored in shared/maps/world_classic.json, not generated per match.",
+    "  * airForce.enabled and navalForce.enabled are now FALSE (D-54). The first",
+    "    version is exactly classic RISK; the extensions are switched on per match.",
+    "  * ai.difficulty REMOVED (D-21 retired). The lobby offers bot NAMES, not",
+    "    difficulty levels. MarsBot's W_p is still the tuning dial.",
+    "  * match.turnTimerSeconds REMOVED (D-65). Nothing in this game expires.",
+    "  * network section ADDED (D-43, D-60, D-61, D-66).",
+    "",
+    "THE MOST IMPORTANT THING IN THIS FILE: the engine must NOT read combat.diceSides",
+    "or combat.attackRange live from here once a match exists. Both are copied into",
+    "the match_rules TABLE at creation and read from there (D-52). See _note_frozen."
   ],
 
   "setup": {
@@ -14,7 +28,7 @@
     "startingArmies": { "3": 35, "4": 30, "5": 25, "6": 20 },
     "twoPlayerVariant": "neutral",
     "territoryAllocation": "claim",
-    "_note": "startingArmies is SOURCED. 2-player uses a third Neutral seat, so the 3-player row (35) applies. territoryAllocation: 'claim' | 'random'."
+    "_note": "startingArmies is SOURCED. 2-player uses a third Neutral seat, so the 3-player row (35) applies (D-07, confirmed D-62). The Neutral seat appears in 2-player matches ONLY. territoryAllocation: 'claim' | 'random'."
   },
 
   "draft": {
@@ -41,7 +55,8 @@
     "_note": "SOURCED. defenderWinsTies is the single highest-risk flag in this file; TC-CMB-02…06 assert the exact odds fractions against it.",
     "_note_diceSides": "D-29, post-lock supervisory addition. Default 6 reproduces classic RISK exactly. Faces are drawn as NextInt(1, diceSides+1); the NUMBER of draws is unchanged, so rng_position semantics are identical at every value. defenderWinsTies is independent of this key (strict > on two drawn values).",
     "_note_attackRange": "D-30, post-lock supervisory addition. Default 1 IS adjacency, so the default legal set equals the neighbour list. Above 1, a land attack is a BFS to depth attackRange over LAND EDGES ONLY — the same range function the Air Force uses (D-11). attackRangeMax 10 is the measured diameter of the classic land graph; larger values are meaningless. Raising this can never make a sea route traversable (C-08).",
-    "_note_frozen": "BOTH diceSides and attackRange are copied into matches.options at match creation and read from there, never live from this file (D-29/D-30 consequence 1). Editing them here must not affect a match in progress: diceSides would change drawn faces while consuming identical rng_position values, and attackRange would invalidate a logged action's legality. TC-PER-07 is the guard. NOTE that TC-DET-01..04 CANNOT detect a live diceSides read: the draw COUNT is unchanged, so rng_position tracks the log perfectly while every face differs. TC-ARC-03 covers the no-hidden-state side of the same property."
+    "_note_frozen": "BOTH diceSides and attackRange are copied into the match_rules TABLE at match creation and read from there, never live from this file (D-29/D-30 consequence 1, storage changed by D-52). Editing them here must not affect a match in progress: diceSides would change drawn faces while consuming identical rng_position values, and attackRange would invalidate a logged action's legality. TC-PER-07 is the guard. NOTE that TC-DET-01..04 CANNOT detect a live diceSides read: the draw COUNT is unchanged, so rng_position tracks the log perfectly while every face differs. TC-ARC-03 covers the no-hidden-state side of the same property.",
+    "_note_ui": "D-39: NEITHER value is shown in the user interface. There is no dice-face stepper and no attack-range stepper on any screen. They are set per match at creation; docs/16-task-day-change-guide.md is the procedure for changing one if the committee asks on task day."
   },
 
   "cards": {
@@ -79,46 +94,65 @@
   },
 
   "airForce": {
-    "enabled": true,
+    "enabled": false,
     "maxRange": 5,
     "rangeGraph": "land",
     "minRange": 1,
     "attacksPerTurn": 1,
     "requiresCapability": true,
     "usesStandardCombat": true,
+    "_tier": "P2",
     "_note": [
+      "D-54: enabled is now FALSE by default. The first version is exactly classic RISK (D-36).",
+      "Switch it on per match via match_rules.air_force_enabled, not by editing this file.",
       "LOCKED: maxRange 5, measured by land adjacency only. Sea routes are excluded from range.",
       "ASSUMPTION AIR-1: attacksPerTurn = 1 is the simplest limiter that stops Air Force strictly dominating normal attack. One integer, tunable.",
-      "On the classic board, range 5 reaches 77.2% of ordered territory pairs (graph diameter is 10) — measured, see docs/07-game-design.md 7.8."
+      "On the classic board, range 5 reaches 77.2% of ordered territory pairs — 1330 of 1722, graph diameter 10. RE-MEASURED 13 Oct 2026 by tools/generate_map_seed.py --stats; see docs/07-game-design.md 7.8."
     ]
   },
 
   "navalForce": {
-    "enabled": true,
+    "enabled": false,
     "requiresCapability": true,
     "allowsAttack": true,
     "allowsFortify": true,
     "allowsOccupy": true,
     "usesStandardCombat": true,
     "unitsRequiredPerRoute": 0,
+    "_tier": "P2",
     "_note": [
+      "D-54: enabled is now FALSE by default. Switch it on per match via match_rules.naval_force_enabled.",
+      "WARNING: enabling Naval Force while the sea_routes table is EMPTY gives the capability nothing to do. Add at least one route first (see seaRoutes below).",
       "LOCKED: operates over sea routes only; landlocked territories are never automatically naval.",
       "ASSUMPTION NAV-1: unitsRequiredPerRoute = 0. A sea route behaves exactly like a land edge for a seat that holds Naval capability. This is the simplest consistent rule and adds no new unit type."
     ]
   },
 
   "seaRoutes": {
-    "min": 2,
-    "max": 10,
-    "default": 4,
+    "source": "map",
     "endpointsMustBeCoastal": true,
     "forbidExistingLandAdjacency": true,
     "forbidDuplicate": true,
     "preferDifferentContinents": true,
-    "maxGenerationAttempts": 500,
+    "_tier": "P2",
     "_note": [
-      "LOCKED: the seat chooses the COUNT at match setup; the system chooses the endpoints; min/max are configurable; generated routes are frozen into matches.effective_map.",
-      "ASSUMPTION SEA-1: min 2 / max 10 / default 4. min >= 2 keeps Naval Force exercisable whenever it is enabled. Set navalForce.enabled = false to play classic-only."
+      "D-37 REPLACED D-13 (SEA-1). Sea routes are a FIXED LIST PER MAP, authored by the team in",
+      "shared/maps/world_classic.json -> seaRoutes, and seeded into the sea_routes table. The team",
+      "wants MORE routes than classic RISK has; the schema supports any number.",
+      "",
+      "REMOVED by D-37: min, max, default, maxGenerationAttempts. The host no longer chooses a",
+      "count at match setup, the system no longer picks endpoints, and screen S-05 is retired.",
+      "",
+      "source: 'map' means the routes come from the map tables. There is no other value; the key",
+      "exists so that a future generator would have somewhere to declare itself.",
+      "",
+      "The three validity rules SURVIVE D-37 unchanged and are now enforced in two places:",
+      "tools/generate_map_seed.py refuses to emit an invalid route, and tools/verify_db.sql",
+      "queries V1 and V2 fail if one reached the database another way.",
+      "",
+      "D-59: appendices/C-map-specification.md holds a PROPOSED list of 8 routes for the team to",
+      "accept or edit. Until they do, the list is empty — which is harmless, because Naval Force",
+      "is off by default."
     ]
   },
 
@@ -131,9 +165,40 @@
   "match": {
     "roundCap": 100,
     "capTiebreak": "territoryCount",
-    "turnTimerSeconds": 0,
     "aiMinimumThinkTimeMs": 400,
-    "_note": "roundCap 100 is SOURCED (MARS). turnTimerSeconds 0 = unenforced; the field exists now so online play in Phase 6 changes configuration, not schema."
+    "_note": "roundCap 100 is SOURCED (MARS). aiMinimumThinkTimeMs is applied at the API layer, not in the agent, so RL training runs at full speed (D-22). turnTimerSeconds was REMOVED by D-65: nothing in this game expires, so the field is gone rather than present-and-zero."
+  },
+
+  "network": {
+    "serverPort": 5000,
+    "scheme": "http",
+    "pollIntervalMs": 1000,
+    "pollIntervalMinMs": 500,
+    "pollIntervalMaxMs": 5000,
+    "tokenLifetimeHours": 12,
+    "roomCodeLength": 4,
+    "roomCodeAlphabet": "23456789ABCDEFGHJKLMNPQRSTUVWXYZ",
+    "_tier": "P1",
+    "_note": [
+      "ADDED October 2026. The demo runs on a phone hotspot with NO INTERNET (D-34).",
+      "",
+      "pollIntervalMs (D-43, D-66): clients call GET /matches/{id}/state?since={version} about once",
+      "a second. The server answers 304 Not Modified when `since` equals the current version, and",
+      "409 Conflict with the current state when a SUBMITTED action carries a stale version. There is",
+      "no WebSocket and no SignalR hub; that transport is deferred (D-47).",
+      "",
+      "scheme is 'http', not 'https': there is no certificate authority on a hotspot. This is why",
+      "all three Android apps must enable cleartext traffic (D-49) — see",
+      "docs/14-implementation-safety-checklist.md. It is a demo-network decision, not a security",
+      "position; NFR-09 (hashed passwords) is unaffected.",
+      "",
+      "tokenLifetimeHours 12 (D-61): long enough that a token issued at the start of task day cannot",
+      "expire during it. No refresh token, no sessions table.",
+      "",
+      "roomCodeAlphabet (D-60) is 32 characters and deliberately excludes I, O, 0 and 1, which are",
+      "the pairs people mishear and mistype when a code is read aloud across a room. 4 characters",
+      "from 32 is 1,048,576 combinations."
+    ]
   },
 
   "ai": {
@@ -152,18 +217,29 @@
       "W_p1": 0.25,
       "G_l": 5
     },
-    "difficulty": {
-      "Easy":   { "agent": "PassiveBot" },
-      "Normal": { "agent": "MarsBot", "W_p": 0.85, "G_l": 0, "temperature": 1.0 },
-      "Hard":   { "agent": "MarsBot", "W_p": 0.7375, "G_l": 5, "temperature": 0.5 },
-      "Brutal": { "agent": "OnnxPolicyAgent", "temperature": 0.0, "fallback": "MarsBot" }
-    },
     "bots": {
-      "PassiveBot":    { "minWinChance": 0.80, "neverLeaveBelow": 3 },
-      "ChaoticBot":    { "minWinChance": 0.00 },
-      "AggressiveBot": { "minWinChance": 0.45 }
+      "PassiveBot":    { "minWinChance": 0.80, "neverLeaveBelow": 3, "_tier": "P1" },
+      "MarsBot":       { "minWinChance": 0.00, "usesCoefficients": "ai.mars", "_tier": "P1" },
+      "ChaoticBot":    { "minWinChance": 0.00, "_tier": "P2" },
+      "AggressiveBot": { "minWinChance": 0.45, "_tier": "P2" }
     },
-    "_note": "MARS coefficients are SOURCED. W_p is the difficulty dial. The difficulty table is ASSUMPTION AI-1."
+    "_note": [
+      "MARS coefficients are SOURCED. W_p is the difficulty dial.",
+      "",
+      "ai.difficulty was REMOVED by D-56 (which retires D-21). Difficulty is no longer a",
+      "user-facing concept: the lobby offers four BOT NAMES and the host picks one per AI seat.",
+      "The old mapping was Easy=PassiveBot, Normal=MarsBot W_p 0.85, Hard=MarsBot W_p 0.7375,",
+      "Brutal=OnnxPolicyAgent. If the team wants an easier Mars, set W_p to 0.85 here — the dial",
+      "survived, only the wrapper is gone.",
+      "",
+      "TIERS (D-56): PassiveBot and MarsBot are [P1] and must work for the demo. ChaoticBot and",
+      "AggressiveBot are [P2]. OnnxPolicyAgent is [P3] and is deliberately absent from both this",
+      "list and the seats.ai_agent CHECK constraint — adding it is a one-line migration if RL",
+      "ever ships (O-03).",
+      "",
+      "All four names appear in the lobby mock-ups, because drawing four rows costs nothing and",
+      "redrawing the screen later costs an afternoon."
+    ]
   },
 
   "rl": {
@@ -172,6 +248,7 @@
     "gnn": { "layers": 3, "hidden": 128 },
     "opponentPool": { "current": 0.40, "frozenCheckpoints": 0.30, "mars": 0.20, "chaotic": 0.10 },
     "shipGate": "must beat MarsBot head-to-head over >=1000 seeded matches",
-    "_note": "RL is OPTIONAL. The game is complete and shippable at Phase 7 (heuristic AI). Nothing in the engine, API, database or clients depends on rl.*."
+    "_tier": "P3",
+    "_note": "RL is DEFERRED (D-47) — kept in the documents, not built in this prototype. The game is complete and shippable on heuristic AI alone. Nothing in the engine, API, database or clients depends on rl.*, and seats.ai_agent deliberately does not list an ONNX agent. O-03 stays open; the honest answer for this version is 'not attempted'."
   }
 }

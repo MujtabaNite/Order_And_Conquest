@@ -236,7 +236,7 @@ The register ends at **D-30**. New entries, fixed now so every batch cites the s
 | **D-31…D-42** | PROMPT A C-1…C-12 | Confirmed — team, Oct 2026 |
 | **D-43…D-49** | PROMPT A P-1…P-7 | Proposed — needs team confirmation |
 | **D-50…D-55** | `_incoming/database-design.md` §4 (renumbered — it proposed D-31…D-38, which collide) | Confirmed — team, Oct 2026 |
-| **D-56…D-65** | The answers to Q-1…Q-10 above | Proposed — needs team confirmation |
+| **D-56…D-66** | The answers to Q-1…Q-10 above, plus D-65 (turn timer retired) | Proposed — needs team confirmation |
 
 Two of the incoming document's eight entries get **no new ID** because they restate existing
 decisions: "capability is not stored" is already **D-10**, and "six tables → 13" is **D-40** (C-10).
@@ -269,6 +269,6 @@ fractions, the map data beyond §6.7, and the AI scoring coefficients are untouc
 |---|---|---|
 | Q-1 | **Draw four, tier them.** | Figma draws Passive, Chaotic, Aggressive, Mars. Docs: Passive + Mars `[P1]`, Chaotic + Aggressive `[P2]`, ONNX/RL `[P3]`. **D-21 retired** — difficulty is no longer user-facing. |
 | Q-2 | **≤ 5 % growth, compress to pay.** | Budget: 913 KB → **≤ 959 KB**. RL sections of `docs/02`, deferred phases of `docs/08`, desktop material in `design/07`/`design/08` compress to summaries under "Deferred" headings. |
-| Q-3…Q-10 | **All recommendations accepted.** | Recorded as **Proposed — needs team confirmation** (D-56…D-65), so any one of them is still reversible as a data edit. |
+| Q-3…Q-10 | **All recommendations accepted.** | Recorded as **Proposed — needs team confirmation** (D-56…D-66), so any one of them is still reversible as a data edit. |
 
 Phase 0 is closed. Batch 1 begins.

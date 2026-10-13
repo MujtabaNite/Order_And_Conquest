@@ -1,373 +1,350 @@
 -- =====================================================================
---  Order & Conquest — Appendix B — Database Schema (PostgreSQL)
+-- Appendix B — Database Schema (PostgreSQL 13+)
+-- Order & Conquest, prototype edition
 -- =====================================================================
---  Deliverable M. This file is the executable form of docs/06-database-design.md.
---  It is a transcription of §6.5 (constraints CK-01…CK-16) and §6.6 (the data
---  dictionary), not an independent design. Where the two could disagree, §6.6
---  is authoritative and this file is the defect.
 --
---  Six tables, exactly as locked by the master specification §32 and §40:
---      users, matches, seats, territory_state, cards, moves
---  No seventh table is added. Per-territory immutable facts live inside
---  matches.effective_map (jsonb), which is why there is no `territories`
---  table and no `maps` table — see §6.4 "Why the effective map is frozen".
+-- Deliverable L. The executable DDL for the design described in
+-- docs/06-database-design.md. Every column in this file appears in the data
+-- dictionary of appendices/B3-data-dictionary.md with its meaning and an
+-- example value.
 --
---  Target: PostgreSQL 13 or later (for gen_random_uuid()).
---  On PostgreSQL 12 or earlier, run:  CREATE EXTENSION pgcrypto;
---  For the SQLite substitution table, see §6.8.
+-- 13 tables in 3 groups (D-40, replacing the six-table constraint C-03):
+--   A. MAP DATA   static; loaded once from appendices/B2-seed-world-classic.sql
+--                 and never edited during play
+--   B. ACCOUNTS   sign-up and login (D-38: login is required, no guest play)
+--   C. MATCH DATA changes every turn
 --
---  Traceability: D-03 (six card symbols), FR-56…FR-59 (persistence),
---  FR-61 (optimistic concurrency), NFR-09 (password hashing),
---  NFR-12…NFR-14 (durability, atomicity, resume fidelity),
---  NFR-19 (portability).
+-- HOW TO LOAD IT
+--   createdb order_and_conquest
+--   psql -d order_and_conquest -f appendices/B-database-schema.sql
+--   psql -d order_and_conquest -f appendices/B2-seed-world-classic.sql
+--   psql -d order_and_conquest -f tools/verify_db.sql     -- prints every count
+--
+-- THREE RULES OF THUMB USED EVERYWHERE
+--   * every fact is stored once, so no two copies can disagree
+--   * anything that can be worked out is NOT stored. A seat's capabilities are
+--     computed from the territories and cards it owns (D-10); a card's symbol
+--     is its territory's symbol (D-51)
+--   * constraints live in the database, so a bug in a client or in the server
+--     can never save an impossible state
+--
+-- TIER: [P1]. Every table here is needed for the classic-RISK demo. The two
+-- extension columns in match_rules are [P2] and default to false.
 -- =====================================================================
 
-BEGIN;
+-- ---------------------------------------------------------------------
+-- A. MAP DATA
+-- ---------------------------------------------------------------------
+
+-- Lookup table: the six card symbols. Territories and cards point here.
+-- Six values, not four (D-03): Air Force and Naval Force were added.
+CREATE TABLE card_symbols (
+    symbol_code  text PRIMARY KEY,
+    description  text NOT NULL
+);
+INSERT INTO card_symbols (symbol_code, description) VALUES
+    ('Infantry',   'Classic RISK symbol. No action attached.'),
+    ('Cavalry',    'Classic RISK symbol. No action attached.'),
+    ('Artillery',  'Classic RISK symbol. No action attached.'),
+    ('AirForce',   'Owning a territory/card with this symbol unlocks Air Force attacks.'),
+    ('NavalForce', 'Owning a territory/card with this symbol unlocks Naval Force actions.'),
+    ('Wild',       'Joker. Only appears on the 2 wild cards, never on a territory.');
+
+CREATE TABLE maps (
+    map_id         integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    map_key        text    NOT NULL UNIQUE,          -- e.g. 'world_classic'
+    name           text    NOT NULL,
+    canvas_width   integer NOT NULL CHECK (canvas_width  > 0),
+    canvas_height  integer NOT NULL CHECK (canvas_height > 0),
+    created_at     timestamptz NOT NULL DEFAULT now()
+);
+-- RULE (D-50, replacing the frozen-blob design of D-04): a map that has been
+-- used by a match is NEVER edited. To change a map, insert a NEW row
+-- (e.g. 'world_classic_v2') and seed it again. This is what makes FR-10 true
+-- without copying the whole board into every match.
+
+CREATE TABLE continents (
+    continent_id  integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    map_id        integer NOT NULL REFERENCES maps(map_id),
+    code          text    NOT NULL,                  -- 'NA', 'SA', 'EU' ...
+    name          text    NOT NULL,
+    bonus_armies  integer NOT NULL CHECK (bonus_armies >= 0),
+    colour        text    NOT NULL,                  -- '#d4a05a'
+    UNIQUE (map_id, code),
+    UNIQUE (map_id, continent_id)                    -- needed by the composite FK below
+);
+
+CREATE TABLE territories (
+    territory_id  integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    map_id        integer NOT NULL,
+    continent_id  integer NOT NULL,
+    key           text    NOT NULL,                  -- 'northern_europe'
+    name          text    NOT NULL,
+    is_coastal    boolean NOT NULL,
+    card_symbol   text    NOT NULL REFERENCES card_symbols(symbol_code)
+                          CHECK (card_symbol <> 'Wild'),
+    label_x       integer NOT NULL,                  -- where the name is drawn on the board
+    label_y       integer NOT NULL,
+    UNIQUE (map_id, key),
+    UNIQUE (map_id, territory_id),                   -- needed by the composite FKs below
+    -- Composite FK: the continent must belong to the SAME map as the territory.
+    FOREIGN KEY (map_id, continent_id) REFERENCES continents (map_id, continent_id)
+);
+-- Capability profile is NOT a column (D-10, rule CAP-1). It is computed:
+--   {Infantry} + {NavalForce if is_coastal} + {card_symbol}
+-- Storing it would let it disagree with ownership, which is trap 3 of
+-- docs/14-implementation-safety-checklist.md.
+
+-- Land borders. Each border is stored ONCE; smaller id is always territory_a.
+CREATE TABLE territory_adjacency (
+    map_id         integer NOT NULL,
+    territory_a    integer NOT NULL,
+    territory_b    integer NOT NULL,
+    crosses_water  boolean NOT NULL DEFAULT false,   -- drawing hint only, no game meaning
+    PRIMARY KEY (territory_a, territory_b),
+    CHECK (territory_a < territory_b),
+    FOREIGN KEY (map_id, territory_a) REFERENCES territories (map_id, territory_id),
+    FOREIGN KEY (map_id, territory_b) REFERENCES territories (map_id, territory_id)
+);
+-- crosses_water is the render hint renamed from 'seaLanes' by D-04, so the
+-- phrase "sea route" means exactly one thing. A crosses_water border is an
+-- ORDINARY land border to every rule in the engine.
+
+-- Sea routes used only by Naval Force. A FIXED list per map (D-37), not
+-- generated per match. Kept in a separate table from land borders on purpose:
+-- Air Force range counts land borders only and must never accidentally reach
+-- across one of these rows (C-08, D-53).
+CREATE TABLE sea_routes (
+    sea_route_id  integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    map_id        integer NOT NULL,
+    territory_a   integer NOT NULL,
+    territory_b   integer NOT NULL,
+    UNIQUE (territory_a, territory_b),
+    CHECK (territory_a < territory_b),
+    FOREIGN KEY (map_id, territory_a) REFERENCES territories (map_id, territory_id),
+    FOREIGN KEY (map_id, territory_b) REFERENCES territories (map_id, territory_id)
+);
+-- Rules a seed must satisfy, checked by tools/verify_db.sql queries 8-10 and by
+-- tools/generate_map_seed.py before it will emit a row:
+--   both ends coastal, and not already a land border.
+-- The table ships EMPTY. [P2]
 
 -- ---------------------------------------------------------------------
---  1 · users
+-- B. ACCOUNTS
 -- ---------------------------------------------------------------------
---  Registered accounts only. Guest play creates NO row here: an offline
---  match has seats with user_id IS NULL and a display_name typed at the
---  lobby. That is what lets Phases 1–5 run with no authentication at all
---  (FR-03), and it is why seats.user_id is nullable.
--- ---------------------------------------------------------------------
+
 CREATE TABLE users (
-    id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-    username      text        NOT NULL,
-    password_hash text        NOT NULL,   -- Argon2id PHC string. NEVER a plaintext
-                                          -- password and never a bare hash (NFR-09).
-    display_name  text        NOT NULL,
-    colour        text,
-    created_at    timestamptz NOT NULL DEFAULT now(),
-    last_login_at timestamptz
+    user_id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    username       text NOT NULL,
+    password_hash  text NOT NULL,                    -- Argon2id hash, NEVER the password
+    display_name   text NOT NULL,
+    created_at     timestamptz NOT NULL DEFAULT now(),
+    last_login_at  timestamptz
 );
-
--- Case-insensitive uniqueness (§6.6): 'Player' and 'player' are one account.
-CREATE UNIQUE INDEX ux_users_username_lower ON users (lower(username));
-
-COMMENT ON COLUMN users.password_hash IS
-    'Argon2id PHC string. Correcting the 2022 report''s plaintext storage (§6.9, NFR-09).';
+-- Unique ignoring case, so 'Mujtaba' and 'mujtaba' cannot both register.
+CREATE UNIQUE INDEX ux_users_username ON users (lower(username));
+-- D-23: the hash is Argon2id in PHC string format. The 2022 report stored
+-- plaintext passwords; this is recorded as a correction, not a continuation.
+-- There is NO sessions table: login issues a token with a 12-hour life
+-- (D-61), which cannot expire during a task day. Add a table later if you
+-- want refresh tokens or "log out everywhere". [P3]
 
 -- ---------------------------------------------------------------------
---  2 · matches
+-- C. MATCH DATA
 -- ---------------------------------------------------------------------
---  The snapshot root. One row per match, carrying the authoritative
---  phase/round/seat cursor, the optimistic-concurrency version, the
---  frozen effective map, and the random-source position.
---
---  effective_map is FROZEN at creation (FR-10). It contains the
---  normalised territories, adjacency, continents, capability profiles and
---  the GENERATED SEA ROUTES for this match. Editing shared/maps/*.json
---  afterwards cannot alter a match in progress — which is what makes a
---  procedural map resumable at all.
--- ---------------------------------------------------------------------
+
 CREATE TABLE matches (
-    id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-
-    status          text        NOT NULL DEFAULT 'lobby',
-    phase           text        NOT NULL DEFAULT 'claim',
-    round           int         NOT NULL DEFAULT 0,
-    current_seat    int         NOT NULL DEFAULT 0,
-    version         bigint      NOT NULL DEFAULT 1,
-
-    map_key         text        NOT NULL,   -- 'world_classic' or 'generated:<seed>'.
-                                            -- Display and audit only; never a rule input.
-    map_format_ver  int         NOT NULL,
-    effective_map   jsonb       NOT NULL,   -- FROZEN. See above.
-    mask            jsonb,                  -- Submersion mask. Optional feature (D-05);
-                                            -- null in v1. Column kept: it is free.
-
-    rng_seed        bigint      NOT NULL,
-    rng_position    bigint      NOT NULL DEFAULT 0,   -- Draws consumed. WITH rng_seed this
-                                                      -- reconstructs the exact stream (FR-58).
-
-    options         jsonb       NOT NULL DEFAULT '{}'::jsonb,
-    -- FROZEN AT CREATION, exactly like effective_map. Holds diceSides and
-    -- attackRange (FR-84, FR-85) plus the resolved sea-route count.
-    -- READ THESE FROM HERE, NEVER FROM shared/rules.json. A live read of
-    -- diceSides consumes the SAME number of random draws, so rng_position
-    -- tracks the log perfectly while every face differs: a replay diverges
-    -- and TC-DET-01..04 all still pass. TC-PER-07 is the only guard.
-    trade_index     int         NOT NULL DEFAULT 0,   -- Position in the escalation table.
-                                                      -- Match-wide, monotonic, never resets (DR-13).
-    room_code       text,                             -- Built now, used in Phase 6.
-    winner_seat     int,
-
-    created_at      timestamptz NOT NULL DEFAULT now(),
-    updated_at      timestamptz NOT NULL DEFAULT now(),
-
-    CONSTRAINT ck_matches_status   -- CK-01
-        CHECK (status IN ('lobby','setup','in_progress','finished','abandoned')),
-    CONSTRAINT ck_matches_phase    -- CK-02
-        CHECK (phase IN ('claim','draft','attack','occupy','fortify','end_turn','game_over')),
-    CONSTRAINT ck_matches_version      CHECK (version      >= 1),  -- CK-03
-    CONSTRAINT ck_matches_rng_position CHECK (rng_position >= 0),  -- CK-04
-    CONSTRAINT ck_matches_trade_index  CHECK (trade_index  >= 0),  -- CK-05
-    CONSTRAINT ck_matches_round        CHECK (round        >= 0),  -- CK-06
-
-    -- A winner exists only on a finished match, and a match finished by
-    -- domination must name one. Round-cap endings set status='finished'
-    -- with winner_seat from the tiebreak, so this stays an equivalence.
-    CONSTRAINT ck_matches_winner
-        CHECK ((winner_seat IS NOT NULL) <= (status = 'finished'))
+    match_id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    map_id           integer NOT NULL REFERENCES maps(map_id),
+    created_by       uuid    NOT NULL REFERENCES users(user_id),
+    room_code        text    NOT NULL,               -- 4 chars, typed to join, e.g. 'K7QF' (D-60)
+    status           text    NOT NULL DEFAULT 'lobby'
+                     CHECK (status IN ('lobby','in_progress','finished','abandoned')),
+    phase            text    NOT NULL DEFAULT 'claim'
+                     CHECK (phase IN ('claim','draft','attack','occupy','fortify','end_turn','game_over')),
+    current_seat_no  smallint,                       -- whose turn (NULL while in lobby)
+    round_no         integer  NOT NULL DEFAULT 0 CHECK (round_no >= 0),
+    trade_index      integer  NOT NULL DEFAULT 0 CHECK (trade_index >= 0),  -- card sets traded so far
+    version          bigint   NOT NULL DEFAULT 1 CHECK (version >= 1),      -- +1 per action; stops two phones acting at once
+    rng_seed         bigint   NOT NULL,              -- dice are reproducible from seed + position
+    rng_position     bigint   NOT NULL DEFAULT 0 CHECK (rng_position >= 0),
+    winner_seat_no   smallint,
+    created_at       timestamptz NOT NULL DEFAULT now(),
+    started_at       timestamptz,
+    finished_at      timestamptz,
+    updated_at       timestamptz NOT NULL DEFAULT now(),
+    CHECK ((winner_seat_no IS NOT NULL) <= (status = 'finished'))   -- a winner exists only when finished
 );
+-- A room code must be unique among games that are still running. A finished
+-- match releases its code for re-use, which matters on a demo day where you
+-- may create a dozen rooms.
+CREATE UNIQUE INDEX ux_matches_active_room_code
+    ON matches (room_code) WHERE status IN ('lobby','in_progress');
+-- `version` is the whole concurrency design. A client submits the version it
+-- last saw; the UPDATE carries `AND version = @expected`; zero rows affected
+-- means 409 and nothing was written. See docs/06 section 6.8.
+-- There is no map blob and no options blob here any more (D-50, D-52): the map
+-- is reached through map_id, the rules through match_rules.
+-- There is no turn-timer column: O-05 is retired (D-65).
 
--- FR-04: the resumable-match list. Partial, because finished matches are the
--- majority after a month and never appear in that list.
-CREATE INDEX ix_matches_status ON matches (updated_at DESC)
-    WHERE status = 'in_progress';
+-- Rule settings FROZEN for this match. Exactly 1 row per match (1:1).
+-- Copied from shared/rules.json defaults when the match is created, and NEVER
+-- read live afterwards (D-52) — so editing a default mid-demo cannot change a
+-- game already in progress. This is trap 6 of the safety checklist in table
+-- form, and TC-PER-07 asserts the SOURCE of the value, not the value.
+CREATE TABLE match_rules (
+    match_id               uuid PRIMARY KEY REFERENCES matches(match_id) ON DELETE CASCADE,
+    dice_sides             smallint NOT NULL DEFAULT 6   CHECK (dice_sides   BETWEEN 2 AND 20),
+    attack_range           smallint NOT NULL DEFAULT 1   CHECK (attack_range BETWEEN 1 AND 10),
+    defender_wins_ties     boolean  NOT NULL DEFAULT true,
+    territory_allocation   text     NOT NULL DEFAULT 'claim'
+                           CHECK (territory_allocation IN ('claim','random')),
+    fortify_mode           text     NOT NULL DEFAULT 'single_pair'
+                           CHECK (fortify_mode IN ('single_pair','one_step_all','connected_path')),
+    wild_cards             smallint NOT NULL DEFAULT 2   CHECK (wild_cards >= 0),
+    round_cap              integer  NOT NULL DEFAULT 100 CHECK (round_cap > 0),
+    -- Extensions: OFF by default (D-54) so the first version is exactly
+    -- classic RISK, matching the build order of D-36. [P2]
+    air_force_enabled      boolean  NOT NULL DEFAULT false,
+    air_max_range          smallint NOT NULL DEFAULT 5   CHECK (air_max_range BETWEEN 1 AND 10),
+    air_attacks_per_turn   smallint NOT NULL DEFAULT 1   CHECK (air_attacks_per_turn >= 1),
+    naval_force_enabled    boolean  NOT NULL DEFAULT false
+);
+-- dice_sides and attack_range are NOT shown in the user interface (D-39).
+-- They are set here at creation. docs/16-task-day-change-guide.md is the
+-- step-by-step for changing either one if the committee asks.
 
-CREATE UNIQUE INDEX ux_matches_room ON matches (room_code)
-    WHERE room_code IS NOT NULL;
-
-COMMENT ON COLUMN matches.effective_map IS
-    'Frozen normalised map including generated sea routes (FR-10). Never re-read from disk.';
-COMMENT ON COLUMN matches.rng_position IS
-    'The RNG stream is STATE. Seed alone cannot resume a match (§6.4, TC-DET-03).';
-
--- ---------------------------------------------------------------------
---  3 · seats
--- ---------------------------------------------------------------------
---  The unified seat model. Single-player, pass-and-play and online differ
---  by NOTHING except the `kind` column across these rows. Going online in
---  Phase 6 is an UPDATE of kind to 'RemoteHuman'; there is no other schema
---  change and no second match model.
---
---  A 2-player match inserts a THIRD seat of kind 'Neutral' (FR-14, D-07)
---  and uses the 3-player starting-army count of 35.
--- ---------------------------------------------------------------------
 CREATE TABLE seats (
-    match_id         uuid NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-    seat_index       int  NOT NULL,
-    kind             text NOT NULL,
-    user_id          uuid REFERENCES users(id) ON DELETE SET NULL,
-    display_name     text NOT NULL,
-    colour           text NOT NULL,
-    agent            text,               -- 'passive'|'chaotic'|'aggressive'|'mars'|'onnx:v7'
-    status           text NOT NULL DEFAULT 'active',
-    eliminated_by    int,                -- Seat that eliminated this one; drives FR-38.
-    eliminated_round int,
-    final_rank       int,
-
-    PRIMARY KEY (match_id, seat_index),
-
-    CONSTRAINT ck_seats_index  CHECK (seat_index BETWEEN 0 AND 5),          -- CK-07
-    CONSTRAINT ck_seats_kind                                                -- CK-08
-        CHECK (kind IN ('LocalHuman','RemoteHuman','Ai','Neutral')),
-    CONSTRAINT ck_seats_agent                                               -- CK-09
-        CHECK ((kind = 'Ai') = (agent IS NOT NULL)),
-    CONSTRAINT ck_seats_status                                              -- CK-10
-        CHECK (status IN ('active','eliminated','left')),
-
-    -- A remote human is, by definition, an authenticated account.
-    CONSTRAINT ck_seats_remote_has_user
-        CHECK (kind <> 'RemoteHuman' OR user_id IS NOT NULL),
-    -- A neutral seat is never a person and never an agent: it does not take turns.
-    CONSTRAINT ck_seats_neutral_anonymous
-        CHECK (kind <> 'Neutral' OR (user_id IS NULL AND agent IS NULL)),
-    -- Elimination bookkeeping is consistent with status.
-    CONSTRAINT ck_seats_eliminated
-        CHECK ((status = 'eliminated') OR (eliminated_by IS NULL AND eliminated_round IS NULL)),
-    CONSTRAINT ck_seats_not_self_eliminated
-        CHECK (eliminated_by IS NULL OR eliminated_by <> seat_index)
+    match_id            uuid     NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+    seat_no             smallint NOT NULL CHECK (seat_no BETWEEN 0 AND 5),
+    kind                text     NOT NULL CHECK (kind IN ('Human','Ai','Neutral')),
+    user_id             uuid     REFERENCES users(user_id),
+    ai_agent            text     CHECK (ai_agent IN ('PassiveBot','ChaoticBot','AggressiveBot','MarsBot')),
+    colour              text     NOT NULL,
+    status              text     NOT NULL DEFAULT 'active' CHECK (status IN ('active','eliminated','left')),
+    eliminated_by_seat  smallint,
+    eliminated_round    integer,
+    final_rank          smallint CHECK (final_rank BETWEEN 1 AND 6),
+    PRIMARY KEY (match_id, seat_no),
+    -- Which columns must be filled depends on the kind of seat. Three kinds,
+    -- not four: LocalHuman and RemoteHuman collapse into Human (D-55), because
+    -- there is no single-device play any more (D-44).
+    CHECK ( (kind = 'Human'   AND user_id IS NOT NULL AND ai_agent IS NULL)
+         OR (kind = 'Ai'      AND user_id IS NULL     AND ai_agent IS NOT NULL)
+         OR (kind = 'Neutral' AND user_id IS NULL     AND ai_agent IS NULL) ),
+    CHECK (status = 'eliminated' OR (eliminated_by_seat IS NULL AND eliminated_round IS NULL)),
+    CHECK (eliminated_by_seat IS NULL OR eliminated_by_seat <> seat_no),
+    FOREIGN KEY (match_id, eliminated_by_seat) REFERENCES seats (match_id, seat_no)
 );
-
+-- One account cannot occupy two seats in the same match.
+CREATE UNIQUE INDEX ux_seats_one_seat_per_user ON seats (match_id, user_id) WHERE user_id IS NOT NULL;
 CREATE INDEX ix_seats_user ON seats (user_id) WHERE user_id IS NOT NULL;
+-- A 'Neutral' seat never attacks and never fortifies; the server skips its
+-- turn (DR-15). It is inserted ONLY in a 2-player match, which is what makes
+-- the 3-player starting-army row of 35 apply with no special case (D-07, D-62).
+-- ai_agent lists four bots. PassiveBot and MarsBot are [P1]; ChaoticBot and
+-- AggressiveBot are [P2] (D-56). The ONNX agent is [P3] and is deliberately
+-- absent from this CHECK: adding it is a one-line migration if RL ever ships.
 
-COMMENT ON COLUMN seats.agent IS
-    'Agent name as a string, deliberately not a FK: ''onnx:v7'' names a versioned '
-    'policy file on disk, not a database row. A finished match therefore records '
-    'WHICH network won, which is what makes checkpoint comparison possible.';
+-- Now that seats exists, "whose turn" and "who won" can point at a real seat.
+ALTER TABLE matches
+    ADD FOREIGN KEY (match_id, current_seat_no) REFERENCES seats (match_id, seat_no),
+    ADD FOREIGN KEY (match_id, winner_seat_no)  REFERENCES seats (match_id, seat_no);
 
--- ---------------------------------------------------------------------
---  4 · territory_state
--- ---------------------------------------------------------------------
---  The MUTABLE half of a territory: who owns it and how many armies sit
---  on it. Everything immutable — name, continent, neighbours, coastal
---  flag, card symbol, capability profile — lives in effective_map and is
---  NOT duplicated here. That split is the correction to the 2022 report's
---  denormalised Map table (§6.9).
---
---  Rows are inserted ONCE, at match creation, from the effective map:
---  42 rows for the classic board, fewer if a mask submerged territories.
---  Never 42 by assumption (TC-PER-02).
--- ---------------------------------------------------------------------
-CREATE TABLE territory_state (
-    match_id      uuid NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-    territory_key text NOT NULL,
-    owner_seat    int  NOT NULL,
-    armies        int  NOT NULL DEFAULT 1,
-
-    PRIMARY KEY (match_id, territory_key),
-    FOREIGN KEY (match_id, owner_seat) REFERENCES seats(match_id, seat_index),
-
-    CONSTRAINT ck_territory_armies CHECK (armies >= 1)   -- CK-11, DR-04
+-- Who owns each territory and how many armies are on it. This is the ONLY
+-- mutable part of the board. A row is added when a territory is first claimed;
+-- after the claim phase every territory of the map has exactly one row.
+CREATE TABLE match_territories (
+    match_id      uuid     NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+    territory_id  integer  NOT NULL REFERENCES territories(territory_id),
+    owner_seat_no smallint NOT NULL,
+    armies        integer  NOT NULL CHECK (armies >= 1),   -- a territory is never empty (DR-04)
+    PRIMARY KEY (match_id, territory_id),
+    FOREIGN KEY (match_id, owner_seat_no) REFERENCES seats (match_id, seat_no)
 );
+CREATE INDEX ix_match_territories_owner ON match_territories (match_id, owner_seat_no);
+-- Replaces the old territory_state table. Nothing immutable about a territory
+-- is copied here: its name, continent, neighbours, coastal flag and card
+-- symbol are reached through territory_id.
 
--- Territory count per seat, recomputed every Draft phase (FR-23).
-CREATE INDEX ix_territory_owner ON territory_state (match_id, owner_seat);
-
-COMMENT ON CONSTRAINT ck_territory_armies ON territory_state IS
-    'DR-04: a territory is never empty. This is why occupation moves at least as '
-    'many armies as dice rolled and fortification always leaves one behind.';
-
--- ---------------------------------------------------------------------
---  5 · cards
--- ---------------------------------------------------------------------
---  44 rows per match on the classic board: 42 territory cards + 2 wilds
---  (D-14). Fewer when territories are submerged — a card naming a drowned
---  territory would make the +2 territory bonus unclaimable, so the mask
---  resolver drops those cards with the territories.
---
---  D-03: the symbol domain carries SIX values, extended from the source
---  report's four. Six symbols do NOT imply five-card sets. A set is
---  exactly THREE cards (DR-12, C-05) — this is an explicit §40 prohibition.
--- ---------------------------------------------------------------------
-CREATE TABLE cards (
-    match_id    uuid NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-    card_key    text NOT NULL,           -- territory key, or 'wild_1' / 'wild_2'
-    symbol      text NOT NULL,
-    location    text NOT NULL DEFAULT 'deck',
-    holder_seat int,
-    deck_order  int,
-
-    PRIMARY KEY (match_id, card_key),
-    FOREIGN KEY (match_id, holder_seat) REFERENCES seats(match_id, seat_index),
-
-    CONSTRAINT ck_cards_symbol                                              -- CK-12
-        CHECK (symbol IN ('infantry','cavalry','artillery','airforce','naval','wild')),
-    CONSTRAINT ck_cards_location                                            -- CK-13
-        CHECK (location IN ('deck','hand','discard')),
-    CONSTRAINT ck_cards_holder                                              -- CK-14
-        CHECK ((location = 'hand') = (holder_seat IS NOT NULL)),
-    -- Only the two wilds carry the 'wild' symbol, and they carry nothing else.
-    CONSTRAINT ck_cards_wild_keys
-        CHECK ((symbol = 'wild') = (card_key LIKE 'wild\_%'))
+-- The deck: one card per territory, plus the wild cards. 44 cards on the
+-- classic board (42 + 2). The symbol is NOT stored (D-51): it is the
+-- territory's card_symbol, or 'Wild' when territory_id is NULL.
+CREATE TABLE match_cards (
+    match_id       uuid     NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+    card_no        smallint NOT NULL CHECK (card_no >= 1),
+    territory_id   integer  REFERENCES territories(territory_id),   -- NULL = wild card
+    location       text     NOT NULL CHECK (location IN ('deck','hand','discard')),
+    holder_seat_no smallint,
+    deck_order     integer,
+    PRIMARY KEY (match_id, card_no),
+    UNIQUE (match_id, territory_id),                                -- one card per territory
+    CHECK ((location = 'hand') = (holder_seat_no IS NOT NULL)),
+    CHECK ((location = 'deck') = (deck_order     IS NOT NULL)),
+    FOREIGN KEY (match_id, holder_seat_no) REFERENCES seats (match_id, seat_no)
 );
+CREATE INDEX ix_match_cards_hand ON match_cards (match_id, holder_seat_no) WHERE location = 'hand';
+-- The two CHECKs are BICONDITIONAL on purpose. They forbid the half-consistent
+-- row in both directions — a card in a hand with no holder, and a holder on a
+-- card that is not in a hand — which is the state that produces the bug nobody
+-- can reproduce.
+-- The deck keeps its AirForce and NavalForce symbols even while the extensions
+-- are off (D-63): a symbol is a set-matching token, and air_force_enabled only
+-- removes the ACTION.
 
-CREATE INDEX ix_cards_holder ON cards (match_id, holder_seat)
-    WHERE holder_seat IS NOT NULL;
-
-COMMENT ON COLUMN cards.deck_order IS
-    'Written once at shuffle time. Storing the shuffled order explicitly — rather '
-    'than re-deriving it from rng_seed — means resuming a match cannot possibly '
-    'deal a different card, and keeps dealing independent of rng_position.';
-
--- ---------------------------------------------------------------------
---  6 · moves — the append-only log
--- ---------------------------------------------------------------------
---  One row per applied action, in order, forever. Three jobs from one
---  table (§6.3): replay, audit, and RL trajectory export.
---
---  `action` and `events` are stored VERBATIM as the API saw them, not
---  normalised into columns. A future action type needs no migration. The
---  events blob includes EVERY DIE FACE, which is what makes a replay
---  visually identical rather than merely outcome-identical.
--- ---------------------------------------------------------------------
+-- Append-only history of every action. Lets the server resume, replay and
+-- audit a game.
+-- action/events are JSON on purpose, and this is one of the two deliberate
+-- exceptions to strict normalisation (docs/06 section 6.5): the log is only
+-- ever read back whole, and each action type has a different shape.
 CREATE TABLE moves (
-    match_id           uuid        NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-    seq                bigint      NOT NULL,
-    seat_index         int         NOT NULL,
-    round              int         NOT NULL,
-    phase              text        NOT NULL,
-    action             jsonb       NOT NULL,   -- exactly what the client POSTed
-    events             jsonb       NOT NULL,   -- exactly what the engine returned
-    version_after      bigint      NOT NULL,
-    rng_position_after bigint      NOT NULL,
-    created_at         timestamptz NOT NULL DEFAULT now(),  -- AUDIT ONLY. Never a rule input.
-
-    PRIMARY KEY (match_id, seq),                            -- also ix_moves_match_seq
-    FOREIGN KEY (match_id, seat_index) REFERENCES seats(match_id, seat_index),
-
-    CONSTRAINT ck_moves_seq           CHECK (seq           >= 1),  -- CK-15
-    CONSTRAINT ck_moves_version_after CHECK (version_after >= 1),  -- CK-16
-    CONSTRAINT ck_moves_rng_after     CHECK (rng_position_after >= 0)
+    match_id            uuid     NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+    seq                 bigint   NOT NULL CHECK (seq >= 1),
+    seat_no             smallint NOT NULL,
+    round_no            integer  NOT NULL,
+    phase               text     NOT NULL,
+    action_type         text     NOT NULL,           -- 'Attack', 'ClaimTerritory', 'EndPhase' ...
+    action              jsonb    NOT NULL,
+    events              jsonb    NOT NULL,           -- what happened, including every die face
+    version_after       bigint   NOT NULL CHECK (version_after >= 1),
+    rng_position_after  bigint   NOT NULL CHECK (rng_position_after >= 0),
+    created_at          timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (match_id, seq),
+    FOREIGN KEY (match_id, seat_no) REFERENCES seats (match_id, seat_no)
 );
+-- created_at is AUDIT ONLY and must never be a rule input. A timestamp that
+-- influenced a rule would make the match non-reproducible.
 
-COMMENT ON COLUMN moves.created_at IS
-    'Wall-clock time, audit only. A timestamp that influenced a rule would make the '
-    'match non-reproducible, so the column is documented as audit-only to stop it '
-    'becoming a temptation (§6.6).';
-
-COMMIT;
-
--- =====================================================================
---  Append-only enforcement
--- =====================================================================
---  This REVOKE is the whole enforcement mechanism, and it is worth more
---  than a trigger: it makes a violation a permission error at the exact
---  call site, instead of a silent correctness loss discovered weeks later
---  in a replay that no longer matches its snapshot.
+-- Append-only is a CONVENTION in the prototype (D-64): nothing in the server
+-- issues an UPDATE or a DELETE against this table, and TC-DB-11 asserts the
+-- log never shrinks. To enforce it at the database instead, uncomment the two
+-- lines below once the application role exists. [P3]
 --
---  Run as the schema owner, after the application role exists. Substitute
---  the real role name for app_user.
--- =====================================================================
-
--- CREATE ROLE app_user LOGIN PASSWORD '<set-outside-source-control>';
--- GRANT SELECT, INSERT, UPDATE, DELETE ON users, matches, seats,
---       territory_state, cards TO app_user;
--- GRANT SELECT, INSERT                 ON moves TO app_user;
--- REVOKE UPDATE, DELETE                ON moves FROM app_user;
-
--- For a SQLite build (NFR-19), the same guarantee comes from triggers,
--- because SQLite has no per-table privileges:
+--   REVOKE UPDATE, DELETE ON moves FROM app_user;
+--   GRANT  INSERT, SELECT ON moves TO   app_user;
 --
---   CREATE TRIGGER moves_no_update BEFORE UPDATE ON moves
---   BEGIN SELECT RAISE(ABORT, 'moves is append-only'); END;
---   CREATE TRIGGER moves_no_delete BEFORE DELETE ON moves
---   BEGIN SELECT RAISE(ABORT, 'moves is append-only'); END;
+-- Worth doing if your supervisor asks how an append-only log is guaranteed: a
+-- privilege is a guarantee, application discipline is a promise.
 
 -- =====================================================================
---  The action transaction (§6.7)
+-- VALIDATION
 -- =====================================================================
---  Every applied action is ONE transaction containing the snapshot update
---  and the log insert. The version predicate is the entire concurrency
---  design: if it matches no row, the transaction affects nothing, the
---  client receives 409 with the current state, and no partial write ever
---  existed (FR-61, NFR-13, TC-API-03, TC-PER-05).
+-- Load this file, then B2, then run:
 --
---  BEGIN;
---    UPDATE matches
---       SET version      = version + 1,
---           rng_position = @newPosition,
---           phase        = @phase,
---           current_seat = @currentSeat,
---           round        = @round,
---           trade_index  = @tradeIndex,
---           updated_at   = now()
---     WHERE id = @matchId
---       AND version = @expectedVersion;   -- 0 rows => 409, nothing applied
+--     psql -d order_and_conquest -f tools/verify_db.sql
 --
---    -- territory_state, cards, seats updated from the new state
+-- It prints every count the documents assert (13 tables, 42 territories,
+-- 6 continents, 83 land borders, 36 coastal, 1,330 ordered pairs within 5
+-- land steps) and runs the three map validation queries, each of which must
+-- return zero rows:
 --
---    INSERT INTO moves (match_id, seq, seat_index, round, phase, action,
---                       events, version_after, rng_position_after)
---    VALUES (@matchId, @seq, @seat, @round, @phase, @action, @events,
---            @newVersion, @newPosition);
---  COMMIT;
+--   1. both ends of every sea route are coastal
+--   2. no sea route duplicates a land border
+--   3. every territory has at least one land neighbour
 --
---  There are no row locks, no SELECT ... FOR UPDATE, and no lock held
---  across a client round trip. A turn-based game has one writer at a time;
---  the only real contention is a double-tap, and a version check is the
---  cheapest correct answer to it. On localhost a double-tap is genuinely
---  faster than a round trip, so this is not deferred to Phase 6.
--- =====================================================================
-
--- =====================================================================
---  Invariants NOT expressible in SQL (§6.5)
--- =====================================================================
---  Enforced by the engine, each with a test:
---
---    Territory keys in territory_state match exactly the keys
---      in effective_map ............................................ TC-PER-02
---    Card keys match exactly the territory keys plus the wilds ..... TC-PER-03
---    Exactly one seat is 'active' and holds every territory when a
---      match is finished by domination ............................. TC-VIC-01
---    matches.rng_position equals rng_position_after of the highest
---      seq in moves ................................................ TC-DET-03
---
---  The last is the schema-level statement of determinism: if the snapshot
---  and the log disagree about the random-source position, the match is not
---  reproducible — and that is detectable without playing it.
+-- STATUS AS SHIPPED: not verified on this machine. PostgreSQL was not
+-- installed where this appendix was written, so the load has not been run
+-- here. The counts above are derived from shared/maps/world_classic.json by
+-- tools/generate_map_seed.py --stats, which does agree with them. Step 6 of
+-- docs/15-lan-demo-runbook.md is where the team runs the load itself.
 -- =====================================================================
