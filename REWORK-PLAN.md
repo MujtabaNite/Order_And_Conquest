@@ -272,3 +272,34 @@ fractions, the map data beyond §6.7, and the AI scoring coefficients are untouc
 | Q-3…Q-10 | **All recommendations accepted.** | Recorded as **Proposed — needs team confirmation** (D-56…D-66), so any one of them is still reversible as a data edit. |
 
 Phase 0 is closed. Batch 1 begins.
+
+---
+
+## 7. Size budget tracker (D-57)
+
+Measured over the same file set each time:
+`README.md PLATFORM-SCOPE-PROPOSAL.md docs/*.md appendices/* design/*.md`.
+
+| Point | Bytes | vs baseline | Note |
+|---|---|---|---|
+| Baseline, 13 Oct pre-rework | 912,829 | — | |
+| **Budget (+5 %)** | **958,470** | +5.0 % | D-57 |
+| After Batch 1 | 1,041,793 | **+14.1 %** | ⚠️ **83,322 bytes over.** Chapter 6 grew 17 KB → 48 KB and appendix B3 is new (+18 KB) |
+
+**Where the repayment comes from**, scheduled into the batches that touch those files:
+
+| Batch | File | Compress | Est. recovery |
+|---|---|---|---|
+| 2 | `docs/02-literature-review.md` | RL sections → `[P3]` summary under a Deferred heading | ~6 KB |
+| 2 | `appendices/E-pseudocode.md` | Procedural map generation and sea-route generation → `[P3]` summaries | ~12 KB |
+| 2 | `docs/04-system-analysis.md` | Remove the pass-and-play flows and hand-over sequence diagrams | ~8 KB |
+| 3 | `docs/08-implementation-plan.md` | Rewritten anyway; deferred phases become a table instead of prose | ~14 KB |
+| 3 | `appendices/A-api-contract.md` | 13 endpoints → 10, and the guest-play section goes | ~6 KB |
+| 4 | `appendices/F-test-cases.md` | `[P3]` cases → one-line rows; keep the IDs | ~10 KB |
+| 5 | `design/03`, `design/07`, `design/08` | Desktop and iPad material → Deferred summaries | ~22 KB |
+| 5 | `design/11` | Replaced by the shorter staged PROMPT B | ~5 KB |
+| | | **Estimated total** | **~83 KB** |
+
+That is break-even on paper and therefore tight. If the final figure lands over budget, the overshoot
+is reported as a number in the final report rather than paid for by deleting content the team asked
+for — D-42 says prefer rewriting and tagging, and §12.2 forbids deleting outright.

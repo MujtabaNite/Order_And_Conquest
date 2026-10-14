@@ -1,11 +1,38 @@
 # Appendix D — Capability Mapping Decision Table
 
+> **In plain words.** Every one of the 42 territories carries one card symbol and a coastal yes/no.
+> Those two facts decide which of the two extension capabilities — Air Force, Naval Force — a player
+> can use once they own the territory. This appendix is the full 42-row table, plus the two rules that
+> produce it, plus an audit a supervisor can re-run. Nothing here is stored in the database as a
+> "capability": it is worked out from the two fields each time.
+
 > **Deliverable O (part).** The complete 42-row capability mapping for the Classic World board, with the
 > rule that produced each row and a review column.
 >
 > This appendix expands [§7.7 Capability System](../docs/07-game-design.md#77-capability-system) and is the
 > evidence for decisions **D-08**, **D-09**, **D-10** and **D-14** in
 > [`00-decisions-and-assumptions.md`](../docs/00-decisions-and-assumptions.md).
+
+**Scope tiers.** The capability system exists to serve the two extensions, so §D.1–D.5 are **`[P2]`** —
+designed now, built after classic RISK works, and shipping switched off (D-36, D-54). §D.6's
+procedural-map note is `[P3]` (D-47). **Nothing in this appendix is on the `[P1]` demo path**, and that
+is worth knowing before you read 42 rows of it.
+
+> **✅ Checked against the 13-table schema, October 2026 — this appendix needed no correction.** The
+> rework replaced the whole database design (D-40, D-50), so the obvious question is whether the
+> capability model survived. It did, unchanged, and the reason is D-10: **capability is derived, never
+> stored.** There was no capability column to migrate.
+>
+> | What CAP-1 reads | Where it now lives | Changed? |
+> |---|---|---|
+> | `coastal` | `territories.is_coastal` — `boolean NOT NULL` | Column name only |
+> | `cardSymbol` | `territories.card_symbol` — FK to `card_symbols`, `CHECK (card_symbol <> 'Wild')` | Column name only; the six-value domain moved from a `CHECK` into a lookup table (D-51) |
+> | The derived profile | **Nowhere.** No table, no column, no cache | **No** |
+>
+> One thing did get *stronger*. A card's symbol used to be a stored `cards.symbol` column with its own
+> six-value `CHECK` (D-03); it is now **derived** from the card's territory, or `Wild` when the card has
+> no territory (D-51). So the "one fact, one place" property this appendix argued for territories now
+> holds for cards too, and §D.5's card route is enforced by the schema rather than by convention.
 
 > **This table records a game-design decision. It is not a factual, historical or military claim about
 > any real territory, nation or armed force.** The symbols are set-matching tokens inherited from classic
@@ -15,7 +42,7 @@
 
 ---
 
-## D.1 The two rules
+## D.1 The two rules `[P2]`
 
 ### CAP-1 — territory profile
 
@@ -41,7 +68,7 @@ and a stored-only field is a second source of truth.
 > **or** holds at least one card whose profile contains X.
 
 Capability is **derived on demand and never stored** (FR-41, D-10). There is no capability column in the
-schema, no counter and no timer, so it cannot desynchronise from ownership. Losing the last coastal
+13-table schema, no counter and no timer, so it cannot desynchronise from ownership. Losing the last coastal
 territory removes Naval capability at the instant the territory changes hands — and **TC-CAP-04** and
 **TC-CAP-05** assert the *loss*, not just the gain, because a cache added later for performance would
 break exactly that and nothing else.
@@ -67,7 +94,7 @@ reader toward a five-card set, and that is a named §40 prohibition.
 
 ---
 
-## D.2 The authored inputs
+## D.2 The authored inputs `[P2]`
 
 Two fields per territory, 84 values in total, from which all 42 profiles follow.
 
@@ -97,7 +124,7 @@ The 44-card deck is 42 territory cards plus 2 wilds, unchanged from classic RISK
 
 ---
 
-## D.3 The complete mapping
+## D.3 The complete mapping `[P2]`
 
 Column meanings:
 
@@ -154,7 +181,7 @@ Column meanings:
 
 ---
 
-## D.4 Distribution audit
+## D.4 Distribution audit `[P2]`
 
 ### By continent
 
@@ -200,7 +227,7 @@ design.
 
 ---
 
-## D.5 How capability reaches a player
+## D.5 How capability reaches a player `[P2]`
 
 Two independent routes, both from CAP-2. This is the part most worth understanding, because it is what
 stops the extensions from being either unreachable or ever-present.
@@ -250,7 +277,7 @@ derived on every query rather than cached (D-10).
 | Owns Peru, then loses Peru | No | No | Derived, so it is gone the instant ownership changes (TC-CAP-04) |
 | Owns 20 coastal territories, no sea route touches any of them | No | Yes — **but no naval action is legal** | Capability is necessary, not sufficient: a route must also connect an owned territory to an unowned one |
 | Holds only `wild_1` and `wild_2` | No | No | A wild has no territory and therefore no profile |
-| Match created with `navalForce.enabled = false` | Unchanged | Capability held, **no actions offered** | Feature flag, not a capability change (D-13) |
+| Match created with `match_rules.naval_force_enabled = false` — **the default** | Unchanged | Capability held, **no actions offered** | Feature flag, not a capability change (D-54). In the first version this is always the case |
 
 The last three rows are the ones that catch implementations. Capability is a *gate*, and every gated
 action has its own further legality conditions — which is why the legal-action list, not the capability
@@ -276,7 +303,7 @@ set, is what a client renders (FR-21).
 | Data | [`shared/maps/world_classic.json`](../shared/maps/world_classic.json) — the `coastal`, `cardSymbol` and `capabilities` fields |
 | Tests | TC-CAP-01…06, TC-MAP-04, TC-MAP-05 |
 
-### Procedural maps
+### Procedural maps `[P3]` — Deferred (D-47)
 
 A generated map assigns `coastal` from whether the Voronoi cell touches the outer hull or a water cell,
 and `cardSymbol` by dealing the 12/10/8/7/5 distribution proportionally across the generated territory

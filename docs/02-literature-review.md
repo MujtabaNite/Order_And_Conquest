@@ -1,11 +1,33 @@
 # 2 — Literature Review and Related Systems
 
+> **In plain words.** This chapter is the background reading. It explains what kind of game RISK is,
+> what the published rules actually say, what a previous student team at this institution built and got
+> wrong, and what researchers have managed to do with RISK-playing AI. It ends by saying what gap this
+> project fills. Nothing here is built — it is the evidence that the design choices in later chapters
+> are informed rather than invented.
+
 > **Sourcing note (prompt §39).** This chapter distinguishes three things throughout: facts drawn from a
 > cited source, observations about systems examined directly, and this project's own positioning. No
 > performance figure appears here that is not attributed. Where a source was not retrievable in full,
 > that is stated rather than paraphrased around. Full citations: [12 — References](12-references.md).
 
-## 2.1 Strategy Games
+**Tier tags.** A literature review builds nothing, so the tag on each section records **which tier the
+section informs**, not when the reading happens. `[P1]` sections underpin classic RISK and the
+three-client architecture; `[P2]` sections underpin the Air Force and Naval Force extensions; `[P3]`
+sections underpin the reinforcement-learning work that **D-47 defers out of this prototype**. Tiers are
+defined in [`PROTOTYPE-EDITION.md`](PROTOTYPE-EDITION.md).
+
+| Section | Tier | Informs |
+|---|---|---|
+| 2.1 Strategy games | `[P1]` | Genre placement, §1.1 |
+| 2.2 Territory-conquest games | `[P1]` | Comparator set, §1.2 |
+| 2.3 Classic RISK | `[P1]` | Every rule in chapter 7 — the sourced authority for the board, setup, combat and cards |
+| 2.4 *Risk Conquest* (2022) | `[P1]` | Requirement structure, and the faults chapter 7 and D-23 correct |
+| 2.5 AI in strategy games | `[P1]` | The MARS evaluation function, which is the `[P1]` scorer bot |
+| 2.6 Reinforcement learning | **`[P3]`** | The deferred RL agent (D-47, O-03). Read for the viva, not for the build |
+| 2.7 Research gap and positioning | `[P1]` | §1.2 problem statement, §11 conclusion |
+
+## 2.1 Strategy Games `[P1]`
 
 Strategy games divide broadly by how time is handled and by how much information players share.
 
@@ -34,7 +56,7 @@ Stochastic combat means the random source must be part of the persisted state, n
 This is the origin of the `rng_seed` / `rng_position` design in §6 — a deterministic game could be
 replayed from its action log alone, but a stochastic one cannot.
 
-## 2.2 Territory-Conquest Games
+## 2.2 Territory-Conquest Games `[P1]`
 
 The territory-conquest subgenre shares a recognisable core: a map partitioned into regions, ownership of
 regions as the unit of progress, army counts as the unit of strength, and adjacency as the constraint on
@@ -53,7 +75,7 @@ UI surface, the test matrix and the AI's action space simultaneously. This proje
 edge type and two new actions and adds no new resource, currency or unit type — a decision recorded as
 D-09 and D-12 and enforced by the checklist in `docs/14-implementation-safety-checklist.md`.
 
-## 2.3 Classic RISK
+## 2.3 Classic RISK `[P1]`
 
 Classic RISK supplies the rule baseline. The numbers below are taken from published rule descriptions
 (Wikipedia; UltraBoardGames) and are the values implemented in `shared/rules.json`.
@@ -138,7 +160,7 @@ inferred values can be corrected without a rebuild.
 World domination — control of every territory. Secret-mission variants exist and are not implemented
 (D-26).
 
-## 2.4 Related Student Project — *Risk Conquest* (2022)
+## 2.4 Related Student Project — *Risk Conquest* (2022) `[P1]`
 
 A prior BSCS final-year project at the same institution implemented a digital RISK. It is used here as a
 **historical reference**, per the authority order in `00-decisions-and-assumptions.md`, and not as a
@@ -171,7 +193,7 @@ engineering grounds, independent of its provenance.
 Recording these is not criticism for its own sake. Prompt §39 requires distinguishing source facts from
 design decisions, and an evaluator comparing the two documents will find the differences regardless.
 
-## 2.5 AI in Strategy Games
+## 2.5 AI in Strategy Games `[P1]`
 
 Approaches to game-playing AI divide by how much of the work is done by search and how much by an
 evaluation of position.
@@ -209,7 +231,16 @@ produces a cautious opponent and lowering it a reckless one, both through one co
 supplies the 100-round cap used to terminate AI-versus-AI matches, without which training runs do not
 reliably end.
 
-## 2.6 Reinforcement Learning
+## 2.6 Reinforcement Learning `[P3]` — Deferred, future work
+
+> **🔶 Deferred by D-47.** Nothing in this section is built in the prototype. It is kept in full for
+> two reasons: it is the evidence base for **why** RL is deferred rather than forgotten, and it is the
+> section a viva examiner is most likely to ask about. **O-03** ("whether RL ships at all") remains
+> open and is now `[P3]`. If the team never attempts it, §10.3 reports that as a legitimate result.
+>
+> **In plain words.** Teaching a computer to play RISK by trial and error has been tried, and it has
+> mostly failed. One team got it working by using the network to *score positions* inside a search,
+> rather than to pick moves. That would take weeks of computer time, which this project does not have.
 
 ### The record is mostly negative, and this matters
 
@@ -261,7 +292,7 @@ beats a tuned evaluation function — days to weeks of wall-clock on a desktop C
 rather than discovered later, and it is exactly why §1.4 makes O8 optional and gates it on beating
 MarsBot head-to-head.
 
-## 2.7 Research Gap and Project Positioning
+## 2.7 Research Gap and Project Positioning `[P1]`
 
 ### The gap
 

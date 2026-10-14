@@ -1,13 +1,33 @@
 # 7 — Game Design and Rules
 
-> **Deliverable D.** The complete rule set: classic RISK as implemented, plus the three locked
-> extensions. Every tunable number here is data in
-> [`shared/rules.json`](../shared/rules.json), not a literal in code (NFR-16).
+> **In plain words.** This chapter is the rulebook. §7.1 to §7.6 and §7.11 to §7.12 are **classic
+> RISK** and are what the first version plays: territories, armies, dice, cards, victory. §7.7 to
+> §7.10 are the **two extensions** — Air Force and Naval Force — which are designed in full here but
+> ship **switched off** (D-36, D-54), so you can read the chapter once for the game you are building
+> and again later for the game you are extending.
+>
+> Two numbers in here are adjustable but **deliberately invisible in the app**: how many faces a die
+> has, and how far an army can attack. §7.5 says why, and §7.13 says how to change them on task day.
+
+> **Deliverable D.** The complete rule set: classic RISK as implemented, plus the locked extensions.
+> Every tunable number here is data in [`shared/rules.json`](../shared/rules.json), not a literal in
+> code (NFR-16) — and, for a match in progress, a frozen column in `match_rules` (D-52).
 >
 > **Scope statement.** The extensions add **two actions** and **one edge type**. There is no new unit
 > type, no second combat system, no fuel, no transport, no hit points and no economy.
 
-## 7.1 Rules
+**Scope tiers for this chapter.** Every section carries one tag.
+
+| Sections | Tier | What it is |
+|---|---|---|
+| §7.1 Rules · §7.2 Turn system · §7.3 Territories · §7.4 Armies · §7.5 Combat · §7.6 Cards | `[P1]` | **Classic RISK.** Built first, end to end, before anything below (D-36) |
+| §7.7 Capability system · §7.8 Air Force · §7.9 Naval Force · §7.10 Sea routes | `[P2]` | The two extensions. Designed now, built after classic RISK works. **Both default to off** (D-54) |
+| §7.11 Maps — authored classic board | `[P1]` | The one map that ships |
+| §7.11 Maps — procedural generation | `[P3]` | Deferred (D-47) |
+| §7.12 Victory and match end | `[P1]` | World domination, elimination, round cap |
+| §7.13 Frozen settings — **new** | `[P1]` | The two configurable values and where they live |
+
+## 7.1 Rules `[P1]`
 
 Order & Conquest implements classic RISK. Two to six seats compete to control every territory on a
 connected map. On a turn a seat receives reinforcements, places them, attacks as often as it likes,
@@ -45,7 +65,7 @@ chapter from growing:
 There is no fifth object. Air Force and Naval Force are **capabilities held by a seat** (§7.7), not
 objects on the board, and that is the single decision that keeps the extension set small.
 
-## 7.2 Turn System
+## 7.2 Turn System `[P1]`
 
 ```
 Draft  →  Attack  →  (Occupy)  →  Fortify  →  End turn
@@ -75,19 +95,19 @@ A **round** is one full cycle through every active seat. The round counter incre
 passes back to the lowest-indexed active seat, and it is what the round cap measures (§7.12). Eliminating
 a seat mid-round does not restart the count.
 
-## 7.3 Territory System
+## 7.3 Territory System `[P1]`
 
 A **territory** is the only ownable object in the game. It has an owner, an army count, and a fixed
 position in the map graph. Everything else about it is immutable map data.
 
 | Property | Mutable? | Where it lives |
 |---|---|---|
-| Owner seat | **Yes** | `territory_state.owner_seat` |
-| Army count | **Yes** | `territory_state.armies` |
-| Key, name, continent | No | `matches.effective_map` |
-| Land neighbours | No | `matches.effective_map` |
-| Coastal flag | No | `matches.effective_map` |
-| Card symbol | No | `matches.effective_map` |
+| Owner seat | **Yes** | `match_territories.owner_seat_id` |
+| Army count | **Yes** | `match_territories.armies` |
+| Key, name, continent | No | `territories` (+ `continents`) |
+| Land neighbours | No | `territory_adjacency` |
+| Coastal flag | No | `territories.is_coastal` |
+| Card symbol | No | `territories.card_symbol` |
 | Capability profile | No | Derived from the two fields above (§7.7) |
 
 Two rules hold at all times and are asserted after every applied action:
@@ -148,7 +168,7 @@ Coastal status is a **design decision, not geography** — the classic board is 
 territories are arguable either way. Six landlocked territories spread across four continents is what
 makes Naval capability something a seat can lose, rather than something everyone permanently has.
 
-## 7.4 Army System
+## 7.4 Army System `[P1]`
 
 Armies are **identical and anonymous**. There is one kind of army. An army on a territory contributes to
 that territory's count, defends it, and can attack from it; nothing distinguishes one army from another,
@@ -233,7 +253,7 @@ and played under another is subtly and unaccountably weaker.
 **A naval fortification across a sea route consumes the same single fortification** (D-19, FR-49). A free
 extra naval move would be a new mechanic.
 
-## 7.5 Combat
+## 7.5 Combat `[P1]`
 
 **One resolution path for every attack in the game** (FR-31). Land, Air Force and Naval attacks differ
 only in which targets are legal.
@@ -305,14 +325,16 @@ Every die comes from the match's injected seeded random source and is returned i
 (FR-29). Clients animate the faces they are given; they never generate one (FR-69). This is what makes
 replay exact and cheating uninteresting (§5.9).
 
-Changing `diceSides` changes the *values* drawn but **not the number of draws**, so `rng_position`
+Changing the face count changes the *values* drawn but **not the number of draws**, so `rng_position`
 advances identically at every face count. That is precisely why the value is frozen into
-`matches.options` at creation (D-29): a match replayed under a different face count would consume the
-same positions and produce different faces, so determinism would appear to hold while the replay
-diverged. The dice renderer is given a face count and a list of values, and has no opinion about either
-(`design/04-dice-ui-ux.md`).
+**`match_rules.dice_sides`** at creation (D-29, storage moved by D-52): a match replayed under a
+different face count would consume the same positions and produce different faces, so determinism would
+appear to hold while the replay diverged. The dice renderer is given a face count and a list of values,
+and has no opinion about either (`design/04-dice-ui-ux.md`).
 
-## 7.6 Cards
+**The face count is not shown or settable anywhere in the app** (D-39). See §7.13.
+
+## 7.6 Cards `[P1]`
 
 ### Deck
 
@@ -391,7 +413,7 @@ and can remove the capability the same turn. The interaction is intended — a s
 reinforcements and lose its Air Force attack in the same Draft phase, and that trade-off is the reason
 card capability is interesting rather than merely additive.
 
-## 7.7 Capability System
+## 7.7 Capability System `[P2]`
 
 > **This section describes a game-design decision. It is not a factual or historical claim about real
 > military forces.** The full 42-row mapping, with a review column, is
@@ -442,7 +464,7 @@ mechanical members.
 | Landlocked | 6 | Never Naval-capable from the territory itself |
 | Air-capable | 7 | One per continent, two in Asia |
 
-## 7.8 Air Force
+## 7.8 Air Force `[P2]`
 
 ### Locked rules
 
@@ -529,7 +551,7 @@ Two implementation consequences follow, and both reduce work rather than adding 
   `combat.attackRange`. There is no second traversal to keep in step, which is the structural form of
   DR-19's single combat resolution.
 - **The sea-route exclusion is inherited, not re-enforced.** The function is handed the land graph and has
-  no access to `map.seaRoutes` (C-08). No value of `attackRange` can make a sea route traversable, so
+  no access to the `sea_routes` table (C-08, D-53). No value of `attack_range` can make a sea route traversable, so
   DR-18 and TC-AIR-03 hold without a guard, at every setting.
 
 A ranged land attack occupies through the ordinary path — move in ≥ dice rolled, leave ≥ 1 behind (§7.4,
@@ -581,7 +603,7 @@ The land-attack legality summary is the same list with items 2 and 3 removed and
 (default 1) in place of `airForce.maxRange` in item 6 — which is the clearest statement of how little
 separates the two actions, and of why they share one implementation.
 
-## 7.9 Naval Force
+## 7.9 Naval Force `[P2]`
 
 ### Locked rules
 
@@ -622,46 +644,71 @@ no loading step, no second combat system.
 A naval attack is offered when **all** of the following hold:
 
 1. Phase is `Attack`.
-2. `navalForce.enabled` is true for this match.
+2. `match_rules.naval_force_enabled` is true for this match — it defaults to `false` (D-54).
 3. The seat holds Naval capability by CAP-2.
 4. A sea route in the frozen effective map joins an owned origin to a target the seat does not own.
 5. The origin holds ≥ 2 armies and more than the dice to be rolled.
 
-## 7.10 Sea Routes
+## 7.10 Sea Routes `[P2]`
 
-### What the host chooses, and what it does not
+> **In plain words.** A sea route is a shipping lane between two coastal territories that are not
+> land neighbours — Brazil to West Africa, for example. A player who holds Naval capability may attack
+> and move along it as if it were an ordinary border. **The list of routes is written by the team, once
+> per map.** Nobody chooses routes during a game, and the computer does not invent them.
 
-> The host chooses **how many** sea routes the match has. The system chooses **where they go**.
+### The list is fixed per map
 
-There is no interface anywhere in the system for drawing a route between two named territories. Host-drawn
-routes are an explicit non-goal (C-07, Part E) — they would let a host construct an arbitrarily favourable
-board, and they would make every match's graph unreproducible from its seed.
+> **🔶 Changed by D-37 (October 2026).** Previously the host chose **how many** routes a match would
+> have, within bounds of 2–10, and the system generated endpoints from the match seed. Both halves of
+> that are gone.
 
-### Bounds
-
-| Setting | Value | Status |
+| | Before (D-13) | **Now (D-37)** |
 |---|---|---|
-| Minimum | 2 | SEA-1 (D-13) |
-| Maximum | 10 | SEA-1 |
-| Default | 4 | SEA-1 |
+| Who decides how many? | The host, at match setup | **The team, once, per map** |
+| Who decides where? | The system, from the match seed | **The team**, authored in `shared/maps/world_classic.json` |
+| When is it decided? | Per match, at creation | At **seed time**, before any match exists |
+| Where does it live? | Frozen into `matches.effective_map` | The **`sea_routes` table**, keyed by map (D-53) |
+| How many are there? | 2 to 10 | **Any number.** The team wants more than classic RISK has; the schema imposes no limit |
+| UI control | A stepper on screen S-05 | **None.** S-05 is retired |
 
-Minimum 2 rather than 0, so that whenever Naval Force is enabled there is something for it to do. A match
-with zero routes would silently disable a locked feature; classic-only play is reached by
-`navalForce.enabled = false`, which is one flag and is honest about what it does.
+Three consequences follow, and each one is a simplification:
 
-### Generation
+1. **Every match on the same map has the same sea routes.** Two matches are comparable, a bug is
+   reproducible without recording a generation seed, and a player who has learned the board has learned
+   it for good.
+2. **There is no generation-failure path.** The old design could fail to place the requested number of
+   routes and had to reject match creation with a `422` after an attempt bound of 500. A fixed list is
+   either valid at seed time or the seed script fails — which is a problem you have on your laptop, not
+   in front of the committee.
+3. **Validation moved earlier, not away.** The rules below are now enforced by
+   `tools/generate_map_seed.py` when the seed is built, by the `sea_routes` constraints when it is
+   loaded, and re-checked by `tools/verify_db.sql` V1–V2.
+
+There is still no interface anywhere in the system for drawing a route between two named territories
+during play. Player-drawn routes remain an explicit non-goal (Part E).
+
+### Validity rules — unchanged
+
+These survived the change to D-37 word for word. They were generator constraints; they are now authoring
+constraints, checked three times over.
 
 | Constraint | Rule | Why |
 |---|---|---|
-| Both endpoints coastal | Hard | A landlocked territory is never an endpoint (FR-51) |
+| Both endpoints coastal | Hard | A landlocked territory is never an endpoint (FR-51, FR-86) |
 | Not already land-adjacent | Hard | A sea route duplicating a land edge adds nothing |
-| No duplicate route | Hard | — |
-| Different continents | Soft preference | Inter-continental routes are more interesting; not worth failing generation over |
-| Attempt bound | 500, then a specific failure | Never a partial match |
+| No duplicate route | Hard | Enforced by a unique constraint on the ordered pair |
+| Different continents | Soft preference | Inter-continental routes are more interesting; not a rejection rule |
 
-Generation runs once, at match creation, from the match seed, and the result is **frozen** into
-`matches.effective_map` (FR-16, FR-10). Routes are never regenerated, so a resumed match has the routes
-it started with, and the same seed and count always produce the same board.
+> **⚠️ The list ships empty, and that is a deliberate open item (D-59).** The team chooses the routes.
+> [`appendices/C-map-specification.md`](../appendices/C-map-specification.md) carries a **proposed list
+> of 8**, each already validated against the three hard rules, for the team to accept or edit.
+>
+> **Enabling Naval Force against an empty `sea_routes` table gives the capability nothing to do.** The
+> old design prevented this structurally, with a minimum of 2 routes; the new design cannot, because
+> there is no generator to enforce a minimum. The risk did not disappear — it became a procedural
+> warning, and it is written up in
+> [`16-task-day-change-guide.md`](16-task-day-change-guide.md). Since `naval_force_enabled` defaults to
+> `false` (D-54), the empty list is harmless until somebody switches the extension on.
 
 ### Terminology — a deliberate rename
 
@@ -675,32 +722,50 @@ The two concepts were one word apart in the original design documents, so the co
 |---|---|---|
 | Is it an edge in the rules? | It *marks* a land edge | It **is** a distinct edge type |
 | Who can use it? | Everyone — it is a land edge | Only a seat holding Naval capability |
-| Counts for Air Force range? | Yes, it is a land edge | **No** |
-| Where is it stored? | `shared/maps/*.json` | Generated per match; only in `matches.effective_map` |
+| Counts for Air Force range? | Yes, it is a land edge | **No** (C-08) |
+| Where is it stored? | `territory_adjacency.crosses_water` | The **`sea_routes` table** (D-37, D-53) |
+| How is it drawn? | 2px **dashed** white | 3px **dotted** white with anchor glyphs |
 
-## 7.11 Maps
+**The two live in separate tables on purpose** (D-53). The Air Force range search must read land borders
+only; two tables make mixing them up impossible to write, where one table with a flag would make it a
+filter somebody can forget.
 
-### The authored classic board
+## 7.11 Maps `[P1]` / `[P3]`
+
+### The authored classic board `[P1]`
 
 42 territories, 6 continents, 83 land edges, connected, with continent sizes 9/4/7/6/12/4 and bonuses
 5/2/5/3/7/2 (FR-09). Every one of those figures is asserted on load.
 
-Territory **polygons are not on the critical path.** The map file carries adjacency, continent membership,
-coastal status, card symbol and a label anchor — everything the rules need. Artwork is Phase 12 (O-01),
-and until then the clients render a debug board from label anchors. The engine, agents, tests and
-pass-and-play all work fully without a single polygon.
+**`shared/maps/world_classic.json` is the human-edited source; the database is the runtime source.**
+`tools/generate_map_seed.py` regenerates `appendices/B2-seed-world-classic.sql` from the JSON, so the two
+cannot drift (D-50). The server never reads the JSON file at run time.
 
-### Procedural maps
+A map used by any match is **immutable**: a changed board is a **new `maps` row**, never an edit to an
+existing one (FR-10, D-50). This replaced the older mechanism — freezing a private copy into
+`matches.effective_map` — and keeps the same guarantee: *a map edit cannot alter a match in progress.*
+Chapter 6 §6.3 states the honest cost of the swap.
 
-Generated maps use the pipeline in §5.7 and pass **the same validation gate** as the authored board
+Territory **polygons are not on the critical path.** The map data carries adjacency, continent membership,
+coastal status, card symbol and a label anchor — everything the rules need. Artwork is deferred (O-01),
+and until then every screen is drawn on the **board placeholder** specified in the design pack. The
+engine, the bots, the tests and a full three-phone match all work without a single polygon.
+
+### Procedural maps `[P3]` — Deferred, future work
+
+> **🔶 Deferred by D-47.** Not built. Only the classic board ships. The design is kept because the
+> **validation gate is not deferred** — V-01…V-12 still run against the authored map (FR-08).
+
+Generated maps would use the pipeline in §5.7 and pass **the same validation gate** as the authored board
 (FR-08). Continent bonuses are derived from the classic static-value band rather than chosen, so a
-generated continent costs about what an equivalent classic continent costs.
+generated continent costs about what an equivalent classic continent costs. A generated map would become
+a new immutable `maps` row like any other.
 
 Procedural maps are **not required for playability** (Part E). They exist because variable territory
 counts are what justify the graph-based state encoder (§2.6), and because they are the cheapest source of
-training variety.
+training variety — both of which belong to the deferred RL work (O-03).
 
-## 7.12 Victory and Match End
+## 7.12 Victory and Match End `[P1]`
 
 ### Elimination
 
@@ -716,8 +781,8 @@ same way.
 
 | Ending | Condition | Result |
 |---|---|---|
-| **World domination** | One seat owns every territory in the effective map | That seat wins (FR-54) |
-| **Round cap** | The configured cap (100) is reached | Seats ranked by territory count (FR-55) |
+| **World domination** | One seat owns every territory on the match's map | That seat wins (FR-54) |
+| **Round cap** | The configured cap (`match_rules.round_cap`, default 100) is reached | Seats ranked by territory count (FR-55) |
 
 The round cap is not decoration. AI-versus-AI matches between two cautious agents can fail to terminate,
 and a training run that never ends produces nothing. 100 rounds is the value the MARS paper used.
@@ -737,6 +802,85 @@ permit omitting them.
 | How many capabilities unlock anything? | **Two** of five |
 | Did the card set size change? | **No** — still three |
 | Did dice combat change? | **No** |
+| How many rule settings does a player see? | **Zero** — §7.13 (D-39) |
+| How many sea routes does a player choose? | **Zero** — the list is fixed per map (D-37) |
+| Which extensions are on in the first version? | **Neither** (D-54) |
+
+## 7.13 Frozen Settings — configurable in the engine, invisible in the app `[P1]` · **NEW**
+
+> **In plain words.** Two of this game's rules are adjustable: **how many faces a die has**, and **how
+> far an army can attack**. Both are real settings the engine reads. Neither appears anywhere in the
+> app — no stepper, no Settings row, no setup screen. A player cannot change them, and cannot see what
+> they are.
+>
+> That sounds like a contradiction, so here is the reason: the committee may well ask *"can you make
+> the dice 8-sided?"* on task day. The answer has to be yes, and it has to take about a minute. But a
+> dice-face control in a RISK app would also be the strangest thing on the screen, and three client
+> teams would each have to build it. So the capability lives in the engine and the **procedure** lives
+> in a document.
+
+### The two settings
+
+| Setting | Column | Default | Allowed range | Decision |
+|---|---|---|---|---|
+| Number of die faces | `match_rules.dice_sides` | **6** | **2 … 20** | D-29, D-39 |
+| Maximum land-attack distance | `match_rules.attack_range` | **1** | **1 … 10** | D-30, D-39 |
+
+Both ranges are enforced by a `CHECK` constraint on the column, which is stronger than the `jsonb` blob
+they used to live in (D-52) — an out-of-range value is now rejected by the database rather than trusted
+from a configuration file.
+
+**At the defaults the game is bit-for-bit classic RISK.** Six faces, attack your neighbours. That is why
+the generalisation costs nothing: a match created without touching either column plays exactly as §7.5
+describes, and the constants never reappear in code.
+
+### Where each number lives, and why there are two places
+
+| Place | What it holds | Who reads it |
+|---|---|---|
+| `shared/rules.json` → `combat.diceSides`, `combat.attackRange` | The **default** for matches created from now on | Match creation only, once |
+| `match_rules.dice_sides`, `match_rules.attack_range` | The **frozen value for one match** | The engine, on every single action |
+
+> **The engine never reads `shared/rules.json` during a match** (FR-87, D-52). Every setting is copied
+> into `match_rules` at creation and read from there afterwards. This is not tidiness — it is the only
+> thing that stops editing a default from changing a game that is already being played in front of an
+> examiner. FR-87 also rejects an attempt to change a setting on a match that has already started.
+
+### What the player sees
+
+| | Shown? | Where it used to be |
+|---|---|---|
+| A dice-faces stepper at match setup | **No** (D-39) | Create Match screen |
+| A dice-faces control in Settings | **No** (D-39) | S-20 Settings |
+| An attack-range stepper | **No** (D-39) | Create Match screen |
+| The current values, read-only, anywhere | **No** | — |
+| The dice themselves | **Yes** — the faces that were rolled | S-11 Attack |
+
+The dice renderer is handed *a face count and a list of values* and has no opinion about either, so a
+match played at 8 faces renders correctly without any client change (`design/04-dice-ui-ux.md`). That is
+what makes the task-day change a one-column edit rather than three app rebuilds.
+
+### Changing one on task day
+
+The full procedure, with the exact statement and a verification step, is
+[`16-task-day-change-guide.md`](16-task-day-change-guide.md). The short version:
+
+1. The change applies to a **new match**, never to one in progress (FR-87). Start a fresh room.
+2. Edit the default in `shared/rules.json`, or set the column directly on the new match before it
+   starts.
+3. Verify by reading the row back — not by looking at the app, which shows neither value.
+4. Play one attack and count the die faces on screen.
+
+> **Consequence worth stating to an examiner.** At `attack_range ≥ 2`, range stops being what
+> distinguishes the Air Force: a ranged land attack is a breadth-first search to depth R over land
+> edges, which is the *same computation* as the Air Force range check (D-11, D-30). The two share one
+> range function rather than growing a second one. What still distinguishes the Air Force is its
+> **one-attack-per-turn limiter** and its **capability requirement**, not its reach — §7.8 says so
+> explicitly, because an Air Force subsystem that looks redundant is one a later reader will delete.
+>
+> And raising the range **cannot** make a sea route traversable: the range function is handed the land
+> graph and has no access to the sea-route list (C-08), so the structural exclusion that DR-18 and
+> TC-AIR-03 depend on survives any value of R.
 
 ---
 
