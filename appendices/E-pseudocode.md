@@ -1,5 +1,14 @@
 # Appendix E — Pseudocode
 
+> **In plain words.** This appendix is the engine written out in plain steps, before it is written in
+> C#. If you want to know exactly how combat resolves, how a card set is judged, how the legal-action
+> list is built or how far the Air Force can reach, the answer is here rather than in prose.
+
+**Scope tiers.** §E.1–E.8 and §E.12–E.14 are `[P1]` — the engine surface, legality, combat, cards and
+victory. §E.9–E.11 and §E.15 are `[P2]` (capability, range, naval legality, sea-route loading).
+§E.17 is `[P3]`, deferred by D-47. Tiers are defined in
+[`docs/PROTOTYPE-EDITION.md`](../docs/PROTOTYPE-EDITION.md).
+
 > **Deliverable P.** The algorithms that carry the rules, in implementation-independent form.
 >
 > Pseudocode conventions follow the 2022 source report (§2.4). This appendix is derived from
@@ -18,8 +27,8 @@
 | `⌊x⌋` | Floor |
 | `\|S\|` | Cardinality |
 | `rules.*` | A value read from [`shared/rules.json`](../shared/rules.json) — never a literal in code |
-| `map.*` | A value read from the frozen `matches.effective_map` — never re-read from disk |
-| `opt.*` | A value read from the frozen `matches.options` — **`opt.diceSides` and `opt.attackRange` are read only from here**, never from `rules.*` (FR-84, FR-85, D-29, D-30) |
+| `map.*` | A value read through `matches.map_id` from the normalised map tables — never re-read from disk, and never edited while a match uses it (D-50) |
+| `opt.*` | A value read from the match's **`match_rules`** row — **`opt.diceSides` and `opt.attackRange` are read only from here**, never from `rules.*` (FR-84, FR-85, FR-87, D-29, D-30, D-52) |
 | `rng` | The injected `IRandomSource`. **The only source of randomness in the engine** |
 | `fail X` | Raise a named, typed failure. Never return a partially-applied state |
 | `assert` | A condition a test pins. Each one names its test case |
@@ -33,7 +42,7 @@ Three standing rules govern every routine below:
 3. **Dice draw order is part of the specification.** All attacker dice first, in index order, then all
    defender dice, in index order. Any other order produces a different match from the same seed.
 4. **Configured combat parameters are frozen at `Start`, not read live.** `opt.diceSides` and
-   `opt.attackRange` are copied into `matches.options` by `Start` and read from there for the rest of the
+   `opt.attackRange` are copied into **`match_rules`** by `Start` and read from there for the rest of the
    match (FR-84, FR-85). `rules.combat.diceSides` and `rules.combat.attackRange` are *defaults for
    creating a match*, nothing more. The reason is specific to `diceSides`: a live read would leave
    `rng_position` advancing identically while producing different faces, so a replay would diverge with
@@ -125,7 +134,12 @@ function ShuffleDeck(map, rng):
 means a resumed match cannot possibly deal a different card, and it keeps dealing independent of
 `rngPosition` (Appendix B, TC-PER-01).
 
-### E.3.3 FreezeOptions — the configured combat parameters
+### E.3.3 FreezeOptions — the configured combat parameters, into `match_rules`
+
+> **🔶 Storage changed by D-52.** These values used to be written into `matches.options`, a `jsonb`
+> blob. They are now **real typed columns in `match_rules`**, one row per match, so the 2–20 and 1–10
+> ranges are enforced by a `CHECK` constraint instead of being trusted. The freezing requirement itself
+> is unchanged and is now stronger. Neither value is shown anywhere in the app (D-39, chapter 7 §7.13).
 
 ```
 function FreezeOptions(options):
@@ -147,7 +161,7 @@ Validation happens **once, here**, so no routine downstream of `Start` ever rang
 again. Rejection is at match creation, where it costs the creator a corrected form; acceptance of a bad
 value would cost a mid-match failure in `ApplyAttack`, which has no legal way to report one.
 
-`Immutable` is the load-bearing word. These two values are persisted in `matches.options` and read from
+`Immutable` is the load-bearing word. These two values are persisted in **`match_rules`** and read from
 the match for the rest of its life. The failure mode this prevents is narrow and nasty, and is worth
 stating in full because no determinism test catches it:
 
@@ -899,65 +913,100 @@ two-player variant.
 
 ---
 
-## E.15 Sea-route generation
+## E.15 Loading the fixed sea routes `[P2]`
 
-The host chooses **how many**; the system chooses **where every one of them goes** (FR-15, FR-16). There
-is no interface anywhere for naming endpoints — an explicit §40 prohibition (Appendix C §C.4).
+> **🔶 Replaced by D-37 (October 2026).** This section used to be a generator: the host chose **how
+> many** routes a match had, and `GenerateSeaRoutes` placed them from the match seed inside a 500-attempt
+> budget, with a two-pass soft-preference trick and a specific generation-failure path. **All of that is
+> gone.** Sea routes are a **fixed list per map**, authored by the team, and loading them is a query.
+>
+> The three hard constraints the generator enforced — both endpoints coastal, not already land-adjacent,
+> no duplicate — did not go anywhere. They moved **earlier**, into `tools/generate_map_seed.py` and the
+> `sea_routes` table's own constraints. The pseudocode for that check is §E.15.1.
+
+There is still no interface anywhere for a *player* to name endpoints — an explicit §40 prohibition
+(Appendix C §C.4). What changed is that the **team** authors the list, once, per map.
 
 ```
-function GenerateSeaRoutes(map, count, rng):
-    if count = 0:
-        assert not rules.navalForce.enabled            // 0 is legal only with Naval disabled (D-13)
-        return []
+function LoadSeaRoutes(map):
+    // One query. No randomness, no budget, no failure path.
+    return SELECT id, territory_a, territory_b
+           FROM   sea_routes
+           WHERE  map_id = map.id
+           ORDER  BY id
+```
 
-    if count < rules.seaRoutes.min or count > rules.seaRoutes.max:
-        fail SeaRouteCountOutOfRange(count, rules.seaRoutes.min, rules.seaRoutes.max)
+That is the whole of it, and the shape of the replacement is the point: **the risky code was deleted
+rather than rewritten.** A generator that can fail at match-creation time is a generator that can fail
+during a demo. A `SELECT` cannot.
 
-    coastal ← [ t ∈ map.territories where t.coastal ]
-    budget  ← rules.seaRoutes.maxGenerationAttempts     // 500
+| | Old `GenerateSeaRoutes` | New `LoadSeaRoutes` |
+|---|---|---|
+| Inputs | map, count, **rng** | map |
+| Consumes randomness? | **Yes** — advanced `rng_position` | **No** |
+| Can fail? | Yes — `SeaRouteGenerationFailed`, `SeaRouteCountOutOfRange` | No |
+| Attempt budget | 500, split across two passes | — |
+| Result varies per match? | Yes, with the seed | **No** — same map, same routes |
+| Lines of pseudocode | ~35 | 4 |
 
-    // Pass 1 honours the soft preference; pass 2 drops it. Two passes make "soft" deterministic.
-    routes ← TryPlace(map, coastal, count, rng, requireDifferentContinents: true,  budget: ⌊budget/2⌋)
-    if |routes| < count:
-        routes ← routes ∪ TryPlace(map, coastal, count - |routes|, rng,
-                                   requireDifferentContinents: false, budget: ⌈budget/2⌉,
-                                   existing: routes)
+**One consequence is worth stating because it removes a whole class of determinism bug.** The generator
+drew from the match random source, so the number of draws it consumed depended on how many attempts it
+happened to need — which meant `rng_position` after setup was a function of chance. Loading a fixed list
+consumes nothing, so **setup now advances the random source by a fixed, predictable amount.** TC-PER-06
+gets easier to write, not harder.
 
-    if |routes| < count:
-        fail SeaRouteGenerationFailed(requested: count, placed: |routes|)
+### E.15.1 The validity check, moved to seed time
 
-    for i ← 0 to |routes| - 1: routes[i].id ← i
+Run by `tools/generate_map_seed.py` before a single `INSERT` is emitted. The three hard rules are the
+generator's hard rules, unchanged (FR-86).
+
+```
+function ValidateSeaRouteList(map, routes):
+    seen ← ∅
+    for r in routes:
+        a ← map.territory(r.a)                         // fails if the key is unknown
+        b ← map.territory(r.b)
+
+        if a = b:                                      fail SeaRouteSelfLoop(r)
+        if not a.coastal or not b.coastal:              fail SeaRouteEndpointNotCoastal(r)      // hard
+        if b.key ∈ map.landNeighbours(a.key):           fail SeaRouteDuplicatesLandBorder(r)    // hard
+        if Unordered(a.key, b.key) ∈ seen:              fail SeaRouteDuplicate(r)               // hard
+
+        seen ← seen ∪ { Unordered(a.key, b.key) }
+
+    // The soft preference is REPORTED, never enforced (D-37).
+    sameContinent ← [ r in routes where map.territory(r.a).continent
+                                      = map.territory(r.b).continent ]
+    if |sameContinent| > 0:
+        warn "#{|sameContinent|} route(s) join the same continent — permitted, but check it is intended"
+
     return routes
-
-function TryPlace(map, coastal, need, rng, requireDifferentContinents, budget, existing):
-    placed   ← []
-    attempts ← 0
-    while |placed| < need and attempts < budget:
-        attempts ← attempts + 1
-        a ← coastal[ rng.NextInt(0, |coastal|) ]
-        b ← coastal[ rng.NextInt(0, |coastal|) ]
-
-        if a = b:                                        continue   // hard
-        if b ∈ map.landNeighbours(a.key):                continue   // hard — adds nothing
-        if {a, b} ∈ existing ∪ placed:                   continue   // hard — no duplicates
-        if requireDifferentContinents
-           and a.continent = b.continent:                continue   // soft
-
-        placed.append((a: a.key, b: b.key))
-    return placed
 ```
 
-### Failure is specific and total
+**`Unordered(x, y)` is the sorted pair**, so `(brazil, south_africa)` and `(south_africa, brazil)` are
+the same route. The `sea_routes` table enforces the same thing with a unique constraint on the ordered
+pair plus a `CHECK` that stores them in a canonical order — so a duplicate is rejected by the database
+even if a hand-written `INSERT` bypasses this function.
 
-If the requested count cannot be placed within the attempt bound, match creation returns `422` stating
-**how many were placeable**, and **no match row exists** (UC-04 alternative path 9a, Appendix A). A match
-with three of four requested routes would be a match the host did not configure.
+### Failure is specific, and it happens on a laptop
 
-### Frozen at creation
+A broken route list fails **when the seed is built**, naming the offending route and which rule it
+broke. There is no `422`, no partial match, and no generation-failure path in the API at all, because
+nothing is generated. The old concern — *"a match with three of four requested routes would be a match
+the host did not configure"* — cannot arise.
 
-Routes are generated **once** and written into `matches.effective_map`, never regenerated, so a resumed
-match has exactly the routes it started with (FR-10, **TC-PER-06**). `id` is stable for the life of the
-match and is what `NavalAttack` carries on the wire.
+### Fixed by the map, not frozen into the match
+
+Routes belong to the map (D-53) and **a map used by any match is immutable** (D-50). A resumed match
+therefore has exactly the routes it started with (FR-10, **TC-PER-06**), which is the guarantee
+`matches.effective_map` used to provide by copying. `id` is stable for the life of the map — not merely
+the match — and is what `NavalAttack` carries on the wire.
+
+> **⚠️ The list ships empty (D-59).** `LoadSeaRoutes` legitimately returns `[]`, in which case §E.11
+> finds no naval moves and the capability has nothing to do. That is harmless while
+> `naval_force_enabled` is `false`, which is the default (D-54) — and it is a warning in
+> [`docs/16-task-day-change-guide.md`](../docs/16-task-day-change-guide.md) for when somebody turns the
+> extension on. Appendix C §C.9 proposes eight routes for the team to accept.
 
 ---
 
@@ -1031,7 +1080,16 @@ The gate is only real if it has been shown to reject something: `tests/fixtures/
 
 ---
 
-## E.17 Procedural map generation
+## E.17 Procedural map generation `[P3]` — Deferred, future work
+
+> **🔶 Deferred by D-47 (October 2026).** Not built. Only the authored classic board ships, seeded by
+> `tools/generate_map_seed.py`. The pipeline below is kept in full because the **gate it feeds is not
+> deferred** — §E.16's V-01…V-12 run against the authored map on every load (FR-08) — and because the
+> variable territory count it produces is the justification for the graph state encoder (§2.6), which
+> belongs to the equally deferred RL work (O-03).
+>
+> A generated map would become **a new immutable `maps` row** like any other (D-50), not a blob frozen
+> into a match.
 
 Seeded and deterministic: the same seed and parameters produce a byte-identical map (NFR-02, TC-MAP-06).
 
@@ -1168,7 +1226,7 @@ The engine is pure; this is the orchestration around it (§5.5, §6.7).
 
 ```
 function PostAction(matchId, seatToken, body):
-    match ← Load(matchId)                                      // snapshot + effective_map
+    match ← Load(matchId)                                      // snapshot + match_rules + map_id
     seat  ← AuthoriseSeat(seatToken, match)                    // 401 / 403; Neutral always 403
 
     if body.expectedVersion ≠ match.version:
@@ -1192,14 +1250,57 @@ function PostAction(matchId, seatToken, body):
         if rows = 0:
             ROLLBACK;  return 409 Conflict with CurrentState(match, seat)
 
-        UpdateSnapshot(state′)                                 // territory_state, cards, seats
+        UpdateSnapshot(state′)                                 // match_territories, match_cards, seats
         INSERT INTO moves (matchId, seq, seatIndex, round, phase,
                            action, events, versionAfter, rngPositionAfter)
     COMMIT
 
-    Broadcast(events, redactedPerSeat: true)                   // SignalR
+    // NO broadcast. Other seats learn of this on their next poll (D-43).
     return 200 with Redact(state′, seat)
 ```
+
+### E.19.1 The poll, and the AI turn that needs no request
+
+Two routines replace the real-time hub. Together they are the whole of D-43 and D-45.
+
+```
+function GetState(matchId, seatToken, since):
+    match ← LoadVersionOnly(matchId)                           // one cheap read
+    seat  ← AuthoriseSeat(seatToken, match)                    // 401 / 403
+
+    if since = match.version:
+        return 304 Not Modified                                // no snapshot read, no body
+
+    state ← Rehydrate(LoadFull(matchId))
+    return 200 with { Redact(state, seat), Legal(state, seat), match.version }
+
+
+function RunAiTurnsIfDue(matchId):                             // server-driven; nothing calls in
+    loop:
+        match ← Load(matchId)
+        if match.finished: return
+        if SeatKind(match.currentSeat) ≠ Ai: return            // a human's turn: stop and wait
+
+        state ← Rehydrate(match)
+        legal ← Engine.Legal(state)
+        action ← Agent(match.currentSeat.aiAgent).Choose(state, legal)   // never draws from rng
+        Sleep(rules.match.aiMinimumThinkTimeMs)                 // API layer, not the agent (D-22)
+        ApplyAndCommit(match, action)                           // same transaction as PostAction
+```
+
+**`GetState` returning `304` is the load-bearing line.** A waiting phone polls once a second and almost
+always takes that branch: one version read, no snapshot, no redaction, no body (D-66, FR-89). That is
+what makes polling cheap enough to prefer over a socket.
+
+**`RunAiTurnsIfDue` has no caller in any client.** It is driven by the server when a match's current
+seat is an `Ai` seat (D-45, FR-73) — which is why the old `ai-step` endpoint is gone and why **no client
+contains an AI loop**. An AI turn is indistinguishable from a remote human's turn: the version changes
+and the board updates.
+
+**The agent never draws from `rng`.** Standing rule 2 of §E.1 is what makes this safe to run on the
+server: `Choose` scores by expected value (§E.18) and so cannot advance the match random source while
+deciding. Were it to call `Apply` speculatively, the dice the human then sees would differ from the dice
+they would have seen.
 
 ### Two properties worth naming
 

@@ -17,9 +17,19 @@
     "'crossesWater' is a RENDER HINT ONLY (draw the edge dashed). It is a subset of",
     "'neighbours' and has no mechanical meaning whatsoever. It is NOT a sea route.",
     "",
-    "SEA ROUTES are a separate edge type. They do not appear in this file. They are",
-    "generated per match from the seat-chosen count and frozen into matches.effective_map.",
-    "See docs/07-game-design.md section 7.10.",
+    "'seaRoutes' is a separate edge type, used ONLY by Naval Force. It is a FIXED",
+    "LIST PER MAP, authored here by the team (D-37, replacing the generated-per-match",
+    "design of D-13). It is EMPTY until the team chooses the list; appendices/C has a",
+    "proposed list of 8 routes awaiting that decision, and Naval Force is off by",
+    "default (D-54), so classic RISK needs no entry here. A route must have both ends",
+    "coastal and must not already be a land border; tools/generate_map_seed.py checks",
+    "both before it will emit the SQL. Sea routes are excluded from Air Force range",
+    "at every value of attackRange (C-08). See docs/07-game-design.md section 7.10.",
+    "",
+    "This file is the HUMAN-EDITED source of the map. The RUNTIME source is the",
+    "database (D-50). After editing anything here, run:",
+    "    python tools/generate_map_seed.py",
+    "to regenerate appendices/B2-seed-world-classic.sql, and commit both.",
     "",
     "'capabilities' is the territory's capability profile. It is authored explicitly here",
     "and ALSO re-derived on load by rule CAP-1 and asserted equal (test TC-MAP-05):",
@@ -221,5 +231,7 @@
     ["siam", "indonesia"],
     ["kamchatka", "japan"],
     ["mongolia", "japan"]
-  ]
+  ],
+
+  "seaRoutes": []
 }

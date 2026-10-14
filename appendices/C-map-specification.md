@@ -1,7 +1,15 @@
 # Appendix C — Map Specification
 
+> **In plain words.** This appendix is the map's specification: what a map file contains, the twelve
+> rules every map must pass before a match can use it, what a sea route is, and how a map gets from a
+> JSON file into the database. The classic 42-territory board is the only map that ships.
+
 > **Deliverable N.** The map file format, the validation gate, the sea-route edge type, the procedural
 > generation contract, and the retained submersion-mask design.
+
+**Scope tiers.** §C.1–C.3 and §C.6 are `[P1]` — the authored classic board and its validation gate.
+§C.4 and §C.9 (sea routes) are `[P2]`. §C.5 (procedural generation) and §C.7 (submersion masks) are
+`[P3]`, deferred by D-47 and D-05 respectively.
 >
 > This appendix is the format-level expansion of [§5.7 Map System](../docs/05-system-design.md),
 > [§7.11 Maps](../docs/07-game-design.md) and [§8.10](../docs/08-implementation-plan.md). The authored
@@ -17,9 +25,9 @@ The single most important distinction in this appendix, because conflating them 
 | | **Land adjacency** | **Sea route** |
 |---|---|---|
 | Field | `territories[].neighbours` | Not in the map file at all |
-| Where it lives | The authored/generated map | `matches.effective_map`, generated per match |
-| Chosen by | The map author or generator | The **system**, from a count the host picks (FR-15, FR-16) |
-| Count on the classic board | 83 | 2–10, default 4 (SEA-1) |
+| Where it lives | `territory_adjacency` | The **`sea_routes`** table, keyed by map (D-53) |
+| Chosen by | The map author or generator | **The team**, authored once per map (D-37) |
+| Count on the classic board | 83 | **Any number.** Ships empty; 8 proposed in §C.9 (D-59) |
 | Used by normal attack | Yes | No |
 | Used by Naval attack | No | **Yes** |
 | Used by fortification | Yes | Yes, with Naval capability |
@@ -38,7 +46,7 @@ There is a third, *non*-edge concept that is easy to mistake for a sea route:
 | Count on the classic board | 10 |
 
 `crossesWater` is the renamed `seaLanes` field from the source material (D-04). The rename is deliberate:
-the term *sea route* is reserved for the generated Naval edge type, and one name for two different things
+the term *sea route* is reserved for the authored Naval edge type, and one name for two different things
 is how "Air Force uses sea routes for range" gets implemented by accident.
 
 **Alaska–Kamchatka is a land adjacency that happens to cross water.** An attack across it is an ordinary
@@ -192,64 +200,122 @@ The following are computed from `world_classic.json`, not asserted by hand:
 
 ---
 
-## C.4 Sea routes
+## C.4 Sea routes `[P2]`
 
-A sea route is a **per-match** edge type. It does not appear in any map file.
+A sea route is a **per-map** edge type. It is authored in the map file and seeded into the `sea_routes`
+table.
 
-### What the host chooses, and what it does not
+> **🔶 Rewritten by D-37 (October 2026).** This section previously described sea routes as a
+> **per-match** edge type that *"does not appear in any map file"*, generated from a host-chosen count
+> and frozen into `matches.effective_map`. Every part of that is now wrong. Routes are a **fixed list
+> per map**, written by the team, and the team wants **more** of them than classic RISK has.
 
-| The host chooses | The system chooses |
-|---|---|
-| **How many** routes the match has | **Where every one of them goes** |
+### The list is fixed, and the team writes it
 
-There is no interface anywhere in the system — no API field, no client screen, no configuration key — for
-naming a route's two endpoints. Adding one is an explicit §40 prohibition ("no arbitrary user-created sea
-routes"), and [Appendix A](A-api-contract.md#6--post-apimatches--201) is where its absence is visible in
-the contract.
-
-### Bounds (SEA-1)
-
-| Key | Value |
-|---|---|
-| `seaRoutes.min` | 2 |
-| `seaRoutes.max` | 10 |
-| `seaRoutes.default` | 4 |
-| `seaRoutes.maxGenerationAttempts` | 500 |
-
-All four are data in [`shared/rules.json`](../shared/rules.json), so a different band is a configuration
-edit. A count of **0** is legal only when `navalForce.enabled = false`, which is how a purely classic
-match is configured (D-13).
-
-### Generation constraints
-
-| Constraint | Key | Hard? |
+| | Before (D-13) | **Now (D-37)** |
 |---|---|---|
-| Both endpoints coastal | `endpointsMustBeCoastal` | **Hard** — a landlocked territory is never an endpoint (DR-17, FR-51) |
-| Not already land-adjacent | `forbidExistingLandAdjacency` | **Hard** — a route duplicating a land edge adds nothing |
-| Not a duplicate route | `forbidDuplicate` | **Hard** |
-| Endpoints in different continents | `preferDifferentContinents` | **Soft preference** |
-| Bounded attempts | `maxGenerationAttempts` | 500, then a specific failure |
+| Scope | Per **match** | Per **map** |
+| In the map file? | No | **Yes** — a `seaRoutes` array |
+| Who chooses how many | The host, at setup, within 2–10 | **The team**, once, unbounded |
+| Who chooses endpoints | The system, from the match seed | **The team** |
+| Stored in | `matches.effective_map` (jsonb) | The **`sea_routes` table** (D-53) |
+| UI control | A stepper on S-05 | **None** — S-05 retired |
+| Failure mode | `422` if the count could not be placed | None at match time; the **seed script** fails instead |
 
-### Failure is specific and total
+There is still no interface anywhere in the system — no API field, no client screen — for naming a
+route's endpoints **during play**. Player-created routes remain an explicit §40 prohibition, and
+[Appendix A](A-api-contract.md) is where their absence is visible in the contract. What changed is
+*who authors the list and when*, not whether a player can draw one.
 
-If the requested count cannot be placed within the attempt bound, match creation returns `422` stating
-**how many were placeable**, and **no match row exists** (UC-04 alternative path 9a). A match with three
-of four requested routes would be a match the host did not configure.
+### Representation in the map file
 
-### Frozen at creation
-
-Routes are generated **once**, from the match seed, and written into `matches.effective_map`. They are
-never regenerated, so a resumed match has exactly the routes it started with (FR-10, TC-PER-06). Their
-representation inside the effective map:
+`shared/maps/world_classic.json` carries a top-level `seaRoutes` array. It **ships empty** (D-59):
 
 ```jsonc
 "seaRoutes": [
-  { "id": 0, "a": "brazil",  "b": "west_africa" },
-  { "id": 1, "a": "iceland", "b": "greenland"   }
+  // Chosen by the team. Each entry: { "a": "<territory_key>", "b": "<territory_key>" }
+  // Both endpoints must be coastal, must not already be land neighbours, and the
+  // unordered pair must be unique. tools/generate_map_seed.py refuses to emit an
+  // invalid entry; the sea_routes table refuses to store one.
 ]
 ```
 
-`id` is stable for the life of the match and is what `NavalAttack` carries on the wire.
+`tools/generate_map_seed.py` turns each entry into a `sea_routes` row. The server never reads the JSON
+file at run time — the JSON is the human-edited source, the database is the runtime source (D-50).
+
+### Validity rules — unchanged, and now checked three times
+
+These were generator constraints. They are now **authoring** constraints, and they survived D-37 word
+for word.
+
+| Constraint | Key in `rules.json` | Hard? | Enforced by |
+|---|---|---|---|
+| Both endpoints coastal | `endpointsMustBeCoastal` | **Hard** — a landlocked territory is never an endpoint (DR-17, FR-51, FR-86) | Generator · `sea_routes` FK + `CHECK` · `verify_db.sql` V1 |
+| Not already land-adjacent | `forbidExistingLandAdjacency` | **Hard** — a route duplicating a land edge adds nothing | Generator · `verify_db.sql` V2 |
+| Not a duplicate route | `forbidDuplicate` | **Hard** | Generator · unique constraint on the ordered pair |
+| Endpoints in different continents | `preferDifferentContinents` | **Soft preference**, never a rejection | Reviewed by eye |
+
+Three enforcement points instead of one is a direct benefit of moving the list earlier: an invalid route
+is now a problem you have on your laptop while running the seed script, not a `422` in front of the
+committee.
+
+### C.9 — Proposed route list for the team `[P2]`
+
+> **⚠️ This is a proposal, not the seed.** `sea_routes` ships **empty** and
+> `naval_force_enabled` defaults to `false` (D-54), so nothing below is live until the team accepts it
+> and re-runs the generator. **D-59** records the decision to propose rather than decide.
+
+Eight routes, every one **checked against the three hard rules by running the check**, not by eye.
+`coastal` was read from each territory's `coastal` field and `land neighbours?` from its `neighbours`
+array in `shared/maps/world_classic.json`.
+
+| # | From | To | Joins | Both coastal? | Land neighbours? | The crossing |
+|---|---|---|---|---|---|---|
+| 1 | `brazil` | `south_africa` | S. America ↔ Africa | Yes | No | South Atlantic |
+| 2 | `great_britain` | `eastern_united_states` | Europe ↔ N. America | Yes | No | North Atlantic |
+| 3 | `scandinavia` | `quebec` | Europe ↔ N. America | Yes | No | North Atlantic, northern |
+| 4 | `japan` | `alaska` | Asia ↔ N. America | Yes | No | North Pacific |
+| 5 | `egypt` | `india` | Africa ↔ Asia | Yes | No | Suez and the Arabian Sea |
+| 6 | `madagascar` | `western_australia` | Africa ↔ Australia | Yes | No | Indian Ocean |
+| 7 | `indonesia` | `india` | Australia ↔ Asia | Yes | No | Bay of Bengal |
+| 8 | `central_america` | `brazil` | N. America ↔ S. America | Yes | No | Caribbean and the Guianas |
+
+**All eight pass.** Both endpoints coastal, no pair already a land border, no duplicate — and **all
+eight join different continents**, which satisfies the soft preference as well. Verified against
+`shared/maps/world_classic.json` on 14 October 2026 by reading the `coastal` and `neighbours` fields
+directly; **not yet verified against a loaded database** (D-58), which is what `tools/verify_db.sql`
+V1–V2 are for.
+
+> **⚠️ The obvious choices are mostly illegal, and this is the trap worth knowing about.** Brazil ↔
+> North Africa, Iceland ↔ Greenland, Great Britain ↔ Iceland, East Africa ↔ Middle East, Southern
+> Europe ↔ North Africa, Indonesia ↔ Siam, Japan ↔ Kamchatka, Alaska ↔ Kamchatka — every one of those
+> pairs looks like a shipping lane, and **every one of them is already a land border in classic RISK**.
+> They are precisely the edges marked `crossesWater`: the client draws them dashed, but to the rules
+> they are ordinary adjacency, usable by anyone with no Naval capability at all (§C.1, D-04).
+>
+> So `forbidExistingLandAdjacency` rejects all of them, and it is right to. A sea route duplicating a
+> land edge would add nothing except a second way to make the same move. **A valid sea route has to be
+> a crossing classic RISK does *not* already give you** — which is why the eight above are longer
+> hauls: Brazil to South Africa rather than Brazil to North Africa.
+>
+> The board has **574 valid non-adjacent coastal pairs**, 516 of them cross-continent, so there is no
+> shortage of choice. The eight above are a starting proposal, not a limit — D-37 explicitly supports
+> any number.
+
+### If the team wants to change the list
+
+1. Edit `seaRoutes` in `shared/maps/world_classic.json`.
+2. Run `python tools/generate_map_seed.py` — it **refuses** to emit a route that breaks a hard rule, so
+   an invalid entry fails here, on a laptop, rather than in front of the committee.
+3. Re-seed and run `tools/verify_db.sql` to confirm V1–V2 pass against the loaded data.
+4. If any match already uses this map, the edit is a **new `maps` row**, not an edit (D-50). The
+   procedure is in [`docs/16-task-day-change-guide.md`](../docs/16-task-day-change-guide.md).
+
+> **⚠️ Enabling Naval Force against an empty `sea_routes` table gives the capability nothing to do.**
+> The old design made this structurally impossible with `min = 2`; the new design cannot, because there
+> is no generator to enforce a minimum. The risk did not vanish — it became a procedural warning, in
+> [`docs/16-task-day-change-guide.md`](../docs/16-task-day-change-guide.md) §6.10 and in
+> `shared/rules.json` under `navalForce`.
 
 ### What a sea route is not
 
@@ -258,12 +324,21 @@ representation inside the effective map:
 - **Not automatic.** A landlocked territory is never an endpoint; a coastal one gains nothing without a
   route actually touching it.
 - **Not part of Air Force range.** Excluded entirely (C-08). Enforced *by construction*: the range BFS is
-  handed the land adjacency graph, and sea routes live in a separate structure that is never added to it
-  (§5.4). That is a stronger guarantee than a conditional, which could be edited away.
+  handed the land adjacency graph, and sea routes live in **a separate table** that is never joined into
+  it (D-53, §5.4). That is a stronger guarantee than a conditional, which could be edited away.
+- **Not per-match.** Every match on a given map has the same routes. A map used by a match is immutable
+  (D-50), so changing the list means a **new map row** — which is what preserves the old
+  "frozen at creation" guarantee without the copy.
+
 
 ---
 
-## C.5 Procedural generation
+## C.5 Procedural generation `[P3]` — Deferred, future work
+
+> **🔶 Deferred by D-47.** Not built. Only the authored classic board ships. The pipeline is kept
+> because the **validation gate it feeds is not deferred** — V-01…V-12 run against the authored map
+> exactly as described in §C.3 (FR-08) — and because a generated map would become a new immutable
+> `maps` row like any other (D-50).
 
 Seeded and deterministic: the same seed and parameters produce a byte-identical map (NFR-02, TC-MAP-06).
 
@@ -324,42 +399,65 @@ procedural board compatible with the same engine (§42).
 |---|---|
 | Same validation gate | TC-MAP-06…10 |
 | Same engine, API and clients | TC-SYS-04 — a full match on a generated map |
-| Variable territory count handled | The GNN state encoder (§C.7) and `territory_state` row count, never 42 by assumption (TC-PER-02) |
+| Variable territory count handled | The GNN state encoder (§C.7) and the `match_territories` row count, never 42 by assumption (TC-PER-02) |
 
 ---
 
-## C.6 Effective map
+## C.6 The map a match plays on
 
-What a match actually plays on. Built once at creation, stored as `matches.effective_map` (jsonb), and
-**never re-read from disk** (FR-10).
+> **🔶 Renamed and rewritten by D-50 (October 2026).** This section was called *"Effective map"* and
+> described a normalised **copy** of the board, frozen into `matches.effective_map` as a `jsonb`
+> document at match creation. **That column no longer exists.** A match now **references** an immutable
+> map by foreign key.
+
+A match holds `map_id`. Everything the rules need is read through it, from the normalised map tables.
 
 ```mermaid
 flowchart LR
-    SRC1[("shared/maps/*.json<br/>authored")] --> NORM["Normalise:<br/>resolve, validate,<br/>derive profiles"]
-    SRC2[("POST /maps/generate<br/>generated")] --> NORM
-    NORM --> MASK["Apply mask<br/>if present (optional)"]
-    MASK --> SEA["Generate sea routes<br/>from the host's count"]
-    SEA --> FREEZE[("matches.effective_map<br/>FROZEN")]
-    FREEZE --> PLAY["Every rule, every legal<br/>action, every replay"]
+    SRC1[("shared/maps/*.json<br/>authored - human edited")] --> GEN["tools/generate_map_seed.py<br/>validate + emit SQL"]
+    GEN --> SEED[("appendices/B2-seed-world-classic.sql")]
+    SEED --> TABLES[("maps, continents, territories,<br/>territory_adjacency, sea_routes<br/>IMMUTABLE once used")]
+    TABLES --> REF["matches.map_id<br/>foreign key"]
+    REF --> PLAY["Every rule, every legal<br/>action, every resume"]
 ```
 
-| Contains | Why |
-|---|---|
-| Normalised continents and territories | The playable board |
-| Land adjacency | Attack, fortify, Air Force range |
-| Capability profiles | CAP-1 results, already validated |
-| **Generated sea routes** | Naval actions; per-match, so they must live here |
-| Applied mask result, if any | The board after submersion |
+| Read through `map_id` | From | Used for |
+|---|---|---|
+| Continents and their bonuses | `continents` | Reinforcement calculation |
+| Territories, coastal flag, card symbol | `territories` | Ownership, the deck, CAP-1 |
+| Land adjacency | `territory_adjacency` | Attack, fortify, Air Force range |
+| **Sea routes** | `sea_routes` | Naval actions (D-53) |
+| Capability profiles | **Derived** by CAP-1, never stored | Extension legality (D-10) |
 
-Editing `shared/maps/world_classic.json` mid-match cannot alter a match in progress. The alternative — a
-foreign key to a map table — would let an in-flight match change under the players.
+### The immutability rule, and its honest cost
 
-`territory_state` rows are inserted once from this document: 42 for the classic board, fewer if a mask
-submerged territories, whatever the generator produced. **Never 42 by assumption** (TC-PER-02).
+**A map used by any match is never edited. A changed board is a new `maps` row** (FR-10, D-50).
+
+| | Old mechanism | New mechanism |
+|---|---|---|
+| How a match is protected | A private frozen copy — editing the source was *structurally* unable to reach it | An **immutability rule** plus a foreign key |
+| Guarantee | A map edit cannot alter a match in progress | **The same** |
+| Enforcement | Impossible by construction | **A rule the team must honour** — plus the ERD and the data dictionary saying so |
+| Cost | 42 territories duplicated per match, as JSON, unqueryable | One integer |
+
+That difference is the one real thing given up, and chapter 6 §6.3 states it rather than hiding it:
+*the protection moved from "cannot happen" to "must not be done"*. It buys a queryable map — the
+database can answer *"do these two territories share a border?"* with a join instead of the server
+parsing a blob — and it is why the ERD has a map region at all.
+
+`match_territories` rows are inserted once from the referenced map: **42 for the classic board**, and
+whatever a generated map would produce. **Never 42 by assumption** (TC-PER-02).
+
+> **Editing `shared/maps/world_classic.json` mid-match still cannot alter a match in progress** — but
+> for a different reason than before. Previously the match held a copy. Now the JSON is not read at run
+> time at all: it is a build input to the seed generator, and re-running the generator against a map
+> that a match already uses is the thing the immutability rule forbids. Chapter 16's
+> *"changing the map"* procedure is written around exactly that.
+
 
 ---
 
-## C.7 Submersion masks — design retained, not a v1 requirement
+## C.7 Submersion masks `[P3]` — design retained, not a requirement (D-05)
 
 D-05: the mask feature is **out of v1 scope**. It has no FR, no phase and no v1 test case. What is
 retained costs nothing and is recorded here so the option stays open:

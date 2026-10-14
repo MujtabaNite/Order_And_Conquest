@@ -8,7 +8,9 @@
 > rebuild."* **TC-ARC-03** enforces it by asserting that no tunable number appears as a literal in
 > the engine.
 
-**Coverage: 112 leaf keys across 13 sections.** Every one appears below.
+**Coverage: 106 leaf keys across 14 sections.** Every one appears below.
+
+**Scope tiers.** Most of this file is `[P1]` classic-RISK configuration. `seaRoutes`, `airForce`, `navalForce` and `capability` are `[P2]` (both extensions default to off, D-54); `rl` is `[P3]` (deferred, D-47). The section headings carry the tag where it is not `[P1]`.
 
 ---
 
@@ -38,9 +40,9 @@ Not every key is equally safe to edit, and the difference matters more than the 
 
 | Class | What happens | Keys |
 |---|---|---|
-| **Free** | Change it, restart, play. No test oracle moves | `match.roundCap`, `ai.*`, `seaRoutes.default`, `airForce.attacksPerTurn` |
+| **Free** | Change it, restart, play. No test oracle moves | `match.roundCap`, `ai.*`, `network.pollIntervalMs`, `airForce.attacksPerTurn` |
 | **Oracle-moving** | The value is baked into a test's expected result. Change it and that test must be re-derived | `combat.defenderWinsTies`, `cards.tradeValues`, `draft.territoryDivisor`, `setup.startingArmies` |
-| **Frozen per match** | Copied into `matches.options` at creation and read **only** from there. Editing it here must not affect a running match | `combat.diceSides`, `combat.attackRange`, the resolved sea-route count |
+| **Frozen per match** | Copied into **`match_rules`** at creation and read **only** from there. Editing it here must not affect a running match | `combat.diceSides`, `combat.attackRange`, both extension enable flags (§G.15) |
 
 §G.14 lists the frozen set in full, because it is the one class that can corrupt a match silently.
 
@@ -109,7 +111,7 @@ misremember, which is why [04 §4.4](../design/04-dice-ui-ux.md) requires every 
 The classic land graph has diameter **10**: at range 10 every ordered pair of the 1 722 is
 reachable. A larger value is not dangerous, merely meaningless — it cannot reach an eleventh step
 that does not exist, and it can never open a sea crossing, because the range function is handed
-`map.landNeighbours` and has no access to `map.seaRoutes` at all (C-08, enforced by construction).
+`map.landNeighbours` and has no access to the `sea_routes` table at all (C-08, D-53, enforced by construction).
 
 ### What `diceSides` does and does not change
 
@@ -203,7 +205,7 @@ stops being total. The UI side is specified at [05 §5.7](../design/05-card-ui-u
 
 ---
 
-## G.6 `capability` — 5 keys
+## G.6 `capability` — 5 keys `[P2]`
 
 | Key | Default | Permitted | Status | Pinned by |
 |---|---|---|---|---|
@@ -222,7 +224,7 @@ drifted.
 
 ---
 
-## G.7 `airForce` — 7 keys
+## G.7 `airForce` — 7 keys `[P2]`
 
 | Key | Default | Permitted | Status | Pinned by |
 |---|---|---|---|---|
@@ -255,7 +257,7 @@ drift even as their ranges converge.
 
 ---
 
-## G.8 `navalForce` — 7 keys
+## G.8 `navalForce` — 7 keys `[P2]`
 
 | Key | Default | Permitted | Status | Pinned by |
 |---|---|---|---|---|
@@ -267,7 +269,7 @@ drift even as their ranges converge.
 | `usesStandardCombat` | `true` | bool | **LOCKED** (FR-31) | **TC-ARC-05** |
 | `unitsRequiredPerRoute` | `0` | int ≥ 0 | ASSUMPTION **NAV-1** | TC-NAV family |
 
-Setting `enabled: false` requires `seaRoutes` count `0` (D-13, `400` otherwise) — that is the
+Setting `enabled: false` is now simply the **default** (D-54), and requires nothing of the route list — that is the
 classic-only configuration.
 
 A naval fortification **consumes the same single fortification** as a land one (D-19, FR-49), and
@@ -279,29 +281,51 @@ owned territory, so no naval action is offered. Capability is a gate, not a guar
 
 ---
 
-## G.9 `seaRoutes` — 8 keys
+## G.9 `seaRoutes` — 5 keys `[P2]`
+
+> **🔶 Four keys were removed by D-37 and two of the survivors changed meaning.** Sea routes are
+> no longer generated per match from a host-chosen count; they are a **fixed list per map**, authored by
+> the team. What is left in this section is **validation policy**, not generation parameters.
 
 | Key | Default | Permitted | Status | Pinned by |
 |---|---|---|---|---|
-| `min` | `2` | int ≥ 0 | ASSUMPTION **SEA-1** | TC-SEA family |
-| `max` | `10` | int ≥ `min` | ASSUMPTION **SEA-1** | TC-SEA family |
-| `default` | `4` | within `[min, max]` | ASSUMPTION **SEA-1** | TC-SEA family |
-| `endpointsMustBeCoastal` | `true` | bool | **LOCKED** | TC-MAP-04, TC-SEA family |
-| `forbidExistingLandAdjacency` | `true` | bool | **LOCKED** | TC-SEA family |
-| `forbidDuplicate` | `true` | bool | **LOCKED** | TC-SEA family |
-| `preferDifferentContinents` | `true` | bool | ASSUMPTION | TC-SEA family |
-| `maxGenerationAttempts` | `500` | int ≥ 1 | ASSUMPTION | TC-SEA family |
+| `source` | `"map"` | `"map"` | **DERIVED** — D-37. The only value; the key exists so a future generator has somewhere to declare itself | TC-SEA family |
+| `endpointsMustBeCoastal` | `true` | bool | **LOCKED** | TC-MAP-04, TC-DB-04, TC-SEA family |
+| `forbidExistingLandAdjacency` | `true` | bool | **LOCKED** | TC-DB-05, TC-SEA family |
+| `forbidDuplicate` | `true` | bool | **LOCKED** | TC-DB-06, TC-SEA family |
+| `preferDifferentContinents` | `true` | bool | ASSUMPTION — a preference, never a rejection rule | TC-SEA family |
 
-The seat chooses the **count** at setup (S-05); the system chooses the **endpoints**. Generated
-routes are frozen into `matches.effective_map`, so they are reproducible from the match row alone
-and a later edit to this section cannot move a running match's routes.
+(`_tier: "P2"` also sits in this section. Like `_note`, it is documentation inside the data file and
+carries no behaviour, so it is not counted as a key.)
 
-`422` on failure, **creating nothing** — if the requested count cannot be placed within
-`maxGenerationAttempts`, the response states how many were placeable and no match is created.
+### Removed keys, and where each need went
+
+| Removed key | Was | Removed by | Where the need went |
+|---|---|---|---|
+| `min` | `2` | **D-37** | Nowhere — there is no count to bound. The *concern* behind `min = 2` survives as a written warning: enabling Naval Force against an empty `sea_routes` table gives the capability nothing to do (`16-task-day-change-guide.md` §6.10) |
+| `max` | `10` | **D-37** | Nowhere — the team wants **more** routes than classic RISK has, and the schema imposes no limit |
+| `default` | `4` | **D-37** | Nowhere — the list is authored, not defaulted |
+| `maxGenerationAttempts` | `500` | **D-37** | Nowhere — with no generator there is no attempt bound and no generation-failure `422` |
+
+**The three hard validity rules survive unchanged** and are now enforced in three places instead of
+one: `tools/generate_map_seed.py` refuses to emit an invalid route, the `sea_routes` table constraints
+refuse to store one, and `tools/verify_db.sql` V1–V2 re-check the loaded data.
+
+**The routes live in the `sea_routes` table, keyed by map** (D-53), not in a per-match blob. Every match
+on a given map therefore has the same routes — which is what makes a match reproducible without
+recording a generation seed. A map used by a match is immutable (D-50), so a later edit to the route
+list is a **new map row** and cannot move a running match's routes. The guarantee is the one
+`matches.effective_map` used to provide; only the mechanism changed.
+
+> **⚠️ The list ships empty (D-59).** The team chooses it.
+> [`appendices/C-map-specification.md`](C-map-specification.md) §C.9 carries a **proposed list of 8
+> routes**, each pre-validated against the three hard rules, for the team to accept or edit. Until they
+> do, `sea_routes` has zero rows — which is harmless, because `naval_force_enabled` defaults to
+> `false` (D-54).
 
 > A sea route is **not** a `crossesWater` edge. The map's 10 `crossesWater` entries are a render
-> hint with no mechanical meaning and are a subset of `neighbours`; sea routes are generated,
-> counted, and require the Naval capability. [03 §3.6](../design/03-map-ui-ux.md) tables the
+> hint with no mechanical meaning and are a subset of the land borders; sea routes are a separate
+> table and require the Naval capability. [03 §3.6](../design/03-map-ui-ux.md) tables the
 > difference, because conflating them mis-plans every turn.
 
 ---
@@ -318,25 +342,77 @@ trained RL checkpoint can assert which variant it learned rather than silently a
 
 ---
 
-## G.11 `match` — 4 keys
+## G.11 `match` — 3 keys `[P1]`
 
 | Key | Default | Permitted | Status | Pinned by |
 |---|---|---|---|---|
 | `roundCap` | `100` | int ≥ 1 | **SOURCED** (MARS) | TC-VIC family |
 | `capTiebreak` | `"territoryCount"` | `"territoryCount"` | ASSUMPTION | TC-VIC family |
-| `turnTimerSeconds` | `0` | int ≥ 0 | ASSUMPTION — `0` = unenforced | — |
 | `aiMinimumThinkTimeMs` | `400` | int ≥ 0 | ASSUMPTION **D-22** | TC-API-07 |
 
-`turnTimerSeconds: 0` is deliberately unenforced in v1. The field exists now so that online play in
-Phase 6 is a **configuration** change rather than a schema change. [07 §7.8](../design/07-responsive-and-accessibility.md)
-records the consequence: nothing in the product expires on a timer.
+> **🔶 `turnTimerSeconds` was removed by D-65 (October 2026).** It was present-and-zero, kept so that
+> a timer would one day be a configuration change rather than a schema change. **O-05 is retired and
+> the column is gone from the schema.** Nothing in this game expires: the design pack already forbade
+> timed input, and the Figma prompt forbids turn timers outright. A remote-play timer would be a new
+> feature, not a configuration — so the honest encoding is absence, not zero.
+>
+> The consequence is recorded in [`design/07`](../design/07-responsive-and-accessibility.md) and drawn
+> in chapter 4 §4.10.2: the turn phase machine has **no timeout transition out of any state**. A seat
+> whose player has walked away blocks the match until they return or the host abandons it, which is
+> correct for a supervised demo and is handled procedurally in
+> [`docs/15-lan-demo-runbook.md`](../docs/15-lan-demo-runbook.md).
 
 `aiMinimumThinkTimeMs` is applied **at the API layer, not in the agent** (D-22) — so RL training and
-`Sim` runs execute at full speed while a human-facing match still gets a readable pause.
+`Sim` runs execute at full speed while a human-facing match still gets a readable pause. On a phone it
+does a second job: it stops a bot's entire turn from completing between two polls, which would show the
+human a board that changed with no visible cause.
 
 ---
 
-## G.12 `ai` — 29 keys
+## G.11b `network` — 8 keys `[P1]` · **NEW**
+
+> **In plain words.** This section did not exist before October 2026, because the project had no story
+> about *where the server is*. It now has one: the server is a laptop on a phone hotspot, and these
+> eight numbers are everything the clients need to reach it (D-34, D-43, D-49).
+>
+> **Numbering note.** This is `G.11b`, not `G.12`, because `G.12` already means `ai` and renumbering a
+> referenced appendix would invalidate every citation in §13, `docs/14` and `appendices/F`. Same reason
+> FR-86…FR-95 sit at the end of their chapter rather than in their topical groups.
+
+| Key | Default | Permitted | Status | Pinned by |
+|---|---|---|---|---|
+| `serverPort` | `5000` | 1024 – 65535 | ASSUMPTION — any free high port | TC-NET-01 |
+| `scheme` | `"http"` | `"http"` | **DERIVED** — there is no certificate authority on a hotspot | TC-NET-02 |
+| **`pollIntervalMs`** | **`1000`** | **500 – 5000** | ASSUMPTION **D-43 / D-66** | FR-89, TC-NET-03 |
+| `pollIntervalMinMs` | `500` | 500 | DERIVED — floor, below which three phones add load for nothing | TC-NET-03 |
+| `pollIntervalMaxMs` | `5000` | 5000 | DERIVED — ceiling, above which a turn change feels broken | TC-NET-03 |
+| **`tokenLifetimeHours`** | **`12`** | 1 – 24 | ASSUMPTION **D-61** | TC-SEC-05 |
+| `roomCodeLength` | `4` | 4 – 8 | ASSUMPTION **D-60** | FR-92, TC-NET-04 |
+| `roomCodeAlphabet` | `"23456789ABCDEFGHJKLMNPQRSTUVWXYZ"` | 32 chars, no `I` `O` `0` `1` | ASSUMPTION **D-60** | FR-92, TC-NET-04 |
+
+### Why each default is what it is
+
+| Key | Reasoning |
+|---|---|
+| `pollIntervalMs = 1000` | A turn-based game's state changes a few times a minute, so a one-second lag is invisible. Most requests answer `304 Not Modified` and cost one version read (D-66), which is what makes polling cheap enough to prefer over a socket that Unity's IL2CPP and Flutter both make risky (D-43) |
+| `tokenLifetimeHours = 12` | **Chosen so that a token issued on the morning of task day cannot expire during it.** No refresh token and no sessions table — both would be machinery guarding against a failure this number already prevents (D-61) |
+| `roomCodeLength = 4` | Four characters from a 32-character alphabet is 1,048,576 combinations: ample for one hotspot, and far quicker to read aloud across a room than six (D-60) |
+| `roomCodeAlphabet` | Excludes `I`, `O`, `0` and `1` — the characters people mishear and mistype when a code is shouted across a lab |
+| `scheme = "http"` | **Not a security position.** It is a demo-network fact: no certificate authority exists on a hotspot. It is *why* all three Android apps must enable cleartext traffic (D-49, `docs/14`). NFR-09 — Argon2id password hashing — is unaffected, because that protects data at rest |
+
+> **⚠️ `serverPort` is the single most common cause of a failed demo**, and it is not a code bug. The
+> laptop firewall must allow inbound TCP on this port, and a phone hotspot may isolate its clients
+> from one another regardless. Both are checklist items, not settings:
+> [`docs/14`](../docs/14-implementation-safety-checklist.md) and
+> [`docs/15-lan-demo-runbook.md`](../docs/15-lan-demo-runbook.md).
+
+> **These are client-side and host-side settings, not per-match rules.** Nothing here is copied into
+> `match_rules` (§G.15), because none of it affects the outcome of a game — changing the poll interval
+> mid-match is safe, where changing the dice-face count is not.
+
+---
+
+## G.12 `ai` — 19 keys
 
 ### MARS heuristic coefficients — 13 keys, all SOURCED
 
@@ -350,34 +426,41 @@ records the consequence: nothing in the product expires on a timer.
 | `ai.mars.C_cb` | `0.5` | | `ai.mars.G_l` | `5` |
 | `ai.mars.C_oc` | `20.0` | | | |
 
-`W_p` is the difficulty dial. Pinned by **TC-AI** family; **TC-AI-01** asserts a **zero
+`W_p` is MarsBot's caution dial. Pinned by **TC-AI** family; **TC-AI-01** asserts a **zero
 invalid-action rate** (NFR-20) across every agent, which is the property that matters most here —
 coefficients change how well an agent plays, never whether its moves are legal.
 
-### Difficulty table — 12 keys, ASSUMPTION AI-1
+### Bot roster — 6 keys, ASSUMPTION AI-1
 
-| Difficulty | `agent` | Overrides |
-|---|---|---|
-| `Easy` | `PassiveBot` | — |
-| `Normal` | `MarsBot` | `W_p: 0.85`, `G_l: 0`, `temperature: 1.0` |
-| `Hard` | `MarsBot` | `W_p: 0.7375`, `G_l: 5`, `temperature: 0.5` |
-| `Brutal` | `OnnxPolicyAgent` | `temperature: 0.0`, **`fallback: "MarsBot"`** |
+> **🔶 The difficulty table is gone (D-21 retired by D-56).** It mapped `Easy` / `Normal` / `Hard` /
+> `Brutal` onto agents with coefficient overrides, and **FR-77 is Retired** with it. **Difficulty is no
+> longer a user-facing concept.** The lobby offers **bot names** and the host picks one per AI seat
+> (UC-23, screen S-06a), because *"Mars"* tells a player what they are playing against in a way that
+> *"Hard"* does not — and because one roster is one thing to test instead of four aliases for two bots.
+>
+> `W_p` survives untouched in `ai.mars` above. Only the Easy/Normal/Hard/Brutal **wrapper** was removed,
+> so the tuning dial a supervisor might ask about is still there.
 
-`Brutal`'s `fallback` is what keeps the optional RL work optional: with no ONNX checkpoint present
-the difficulty still resolves, to `MarsBot`. Nothing in the shipped product depends on Phase 13.
+| Bot | Key | Default | Tier | Behaviour in one line |
+|---|---|---|---|---|
+| **PassiveBot** | `ai.bots.PassiveBot.minWinChance` | `0.80` | **`[P1]`** | Attacks only when it is almost certain to win |
+| | `ai.bots.PassiveBot.neverLeaveBelow` | `3` | **`[P1]`** | Never strips a territory below 3 armies |
+| **MarsBot** | `ai.bots.MarsBot.minWinChance` | `0.00` | **`[P1]`** | The scorer bot: expected-value search over the MARS coefficients |
+| | `ai.bots.MarsBot.usesCoefficients` | `"ai.mars"` | **`[P1]`** | Points at the 13 coefficients above |
+| **ChaoticBot** | `ai.bots.ChaoticBot.minWinChance` | `0.00` | `[P2]` | Attacks at random from the legal list |
+| **AggressiveBot** | `ai.bots.AggressiveBot.minWinChance` | `0.45` | `[P2]` | Attacks on anything near even odds |
 
-### Bot thresholds — 4 keys
+**Two bots are `[P1]` and two are `[P2]`** (D-56). All four appear in the Figma lobby menu from the
+start, because drawing four rows costs nothing and promoting a bot is then a tier change rather than a
+UI change. A `[P2]` bot selected in a build that does not contain it resolves to **MarsBot**, and the
+substitution is logged (FR-78) — the same fallback that used to keep `Brutal` honest, generalised.
 
-| Key | Default |
-|---|---|
-| `ai.bots.PassiveBot.minWinChance` | `0.80` |
-| `ai.bots.PassiveBot.neverLeaveBelow` | `3` |
-| `ai.bots.ChaoticBot.minWinChance` | `0.00` |
-| `ai.bots.AggressiveBot.minWinChance` | `0.45` |
+**The ONNX / RL agent is `[P3]`** and is not in this table, because it has no keys in `rules.json`: it
+is a checkpoint file or it is absent (O-03, D-47).
 
 ---
 
-## G.13 `rl` — 12 keys, all OPTIONAL
+## G.13 `rl` — 12 keys `[P3]` — Deferred, future work (D-47)
 
 | Key | Default | | Key | Default |
 |---|---|---|---|---|
@@ -405,14 +488,33 @@ Pinned by **TC-RL-01…04**, all marked **(OPT)** and skipped entirely if Phase 
 
 ## G.15 The frozen-per-match set
 
-These values are **copied into `matches.options` at match creation and read only from there.**
+These values are **copied into the `match_rules` table at match creation and read only from there.**
 Editing them in `rules.json` affects **new** matches only.
 
-| Key | Where it lives during a match | Surfaced as |
-|---|---|---|
-| `combat.diceSides` | `matches.options.diceSides` | read-only on S-20, the dice-tray badge, the replay header |
-| `combat.attackRange` | `matches.options.attackRange` | read-only on S-20 |
-| resolved sea-route count and endpoints | `matches.effective_map` | read-only on S-20 |
+> **🔶 Two things changed here, and both make the guarantee stronger** (D-52, D-39).
+>
+> 1. **Storage.** The frozen set used to live in `matches.options`, a `jsonb` blob. It is now **real
+>    typed columns in `match_rules`**, one row per match — so a `CHECK` constraint enforces the
+>    2–20 and 1–10 ranges that a JSON blob could not.
+> 2. **Exposure.** Neither value is **surfaced anywhere in the app any more.** The "read-only on S-20"
+>    column below is gone: D-39 keeps both configurable in the engine and **invisible in the UI**, so
+>    S-20 Settings has no rule section at all. The procedure for changing one on task day is
+>    [`docs/16-task-day-change-guide.md`](../docs/16-task-day-change-guide.md), and chapter 7 §7.13
+>    explains the reasoning.
+
+| Key | Where it lives during a match | Range enforced by | Surfaced in the UI? |
+|---|---|---|---|
+| `combat.diceSides` | `match_rules.dice_sides` | `CHECK (dice_sides BETWEEN 2 AND 20)` | **No** (D-39) |
+| `combat.attackRange` | `match_rules.attack_range` | `CHECK (attack_range BETWEEN 1 AND 10)` | **No** (D-39) |
+| `fortify.mode` | `match_rules.fortify_mode` | enumerated | No |
+| `setup.territoryAllocation` | `match_rules.allocation_mode` | enumerated | No — chosen at creation, then fixed |
+| `match.roundCap` | `match_rules.round_cap` | `CHECK (round_cap > 0)` | No |
+| `airForce.enabled` | `match_rules.air_force_enabled` | bool, **default `false`** (D-54) | No |
+| `navalForce.enabled` | `match_rules.naval_force_enabled` | bool, **default `false`** (D-54) | No |
+
+The **sea-route list is not in this table** and does not need to be. It is map-level reference data
+(D-53) and a map used by a match is immutable (D-50), so it is already frozen by a stronger mechanism
+than copying. FR-87 rejects an attempt to change any row above on a match that has started.
 
 ### Why this is the most dangerous class of key in the file
 
@@ -455,17 +557,31 @@ acknowledgement, not a change.
 
 | Section | Keys | Section | Keys |
 |---|---|---|---|
-| `formatVersion` | 1 | `airForce` | 7 |
-| `setup` | 8 | `navalForce` | 7 |
-| `draft` | 3 | `seaRoutes` | 8 |
-| `combat` | 13 | `fortify` | 2 |
-| `cards` | 13 | `match` | 4 |
-| `capability` | 5 | `ai` | 29 |
-| | | `rl` | 12 |
-| | | **Total** | **112** |
+| `formatVersion` | 1 | `navalForce` | 7 |
+| `setup` | 8 | `seaRoutes` | 5 |
+| `draft` | 3 | `fortify` | 2 |
+| `combat` | 13 | `match` | 3 |
+| `cards` | 13 | **`network`** | **8** |
+| `capability` | 5 | `ai` | 19 |
+| `airForce` | 7 | `rl` | 12 |
+| | | **Total** | **106** |
 
-13 sections, 112 leaf keys, every one tabled above. `_comment`, `_note`, `_note_*` and `_rule_text`
-members are documentation inside the data file and carry no behaviour.
+**14 sections, 106 leaf keys**, every one tabled above. `_comment`, `_note`, `_note_*`, `_rule_text`
+and `_tier` members are documentation inside the data file and carry no behaviour.
+
+### What changed in October 2026, and the arithmetic
+
+| Section | Was | Now | Why |
+|---|---|---|---|
+| `seaRoutes` | 8 | **5** | `min`, `max`, `default`, `maxGenerationAttempts` removed (**D-37**) |
+| `match` | 4 | **3** | `turnTimerSeconds` removed (**D-65**, O-05 retired) |
+| `ai` | 29 | **19** | The 12-key difficulty table removed (**D-56**, D-21 retired); the 4 bot thresholds became 6 roster keys |
+| `network` | — | **+8** | New: the demo network had no configuration at all (**D-34**, D-43, D-49, D-60, D-61) |
+| | **112** | **106** | Net **−6** |
+
+> **The counts above were verified against the file**, not estimated: they are what you get by walking
+> `shared/rules.json` and counting leaf members whose key does not begin with `_`. If a future edit
+> changes a count, this table is the one that has to move with it.
 
 ---
 
